@@ -1,24 +1,23 @@
-from dataclasses import asdict, dataclass, field
-from dataclasses_json import config, dataclass_json
-from ..config.config import AConfig, ConfigProducteca
+from pydantic import BaseModel, PrivateAttr
+from abc import ABC, abstractmethod
+from ..config.config import ConfigProducteca, APIConfig
 
-@dataclass_json
-@dataclass
-class AbstractProductecaDataclass:
-    config:AConfig = field( metadata=config(exclude=lambda x:True))
 
-    @property
-    def endpoint(self):
-        raise NotImplementedError("You need to subclass this to get a valid endpoint")
-
-    def asdict(self):
-        return asdict(self)
-    
-@dataclass_json
-@dataclass
-class AbstractProductecaV1Dataclass(AbstractProductecaDataclass):
-    config:ConfigProducteca = field( metadata=config(exclude=lambda x:True))
+class AbstractProductecaModel(BaseModel, ABC):
+    _config: APIConfig = PrivateAttr()
 
     @property
-    def endpoint_url(self):
-        return self.config.get_endpoint(self.endpoint)    
+    @abstractmethod
+    def endpoint(self) -> str:
+        pass
+
+    def dict(self, *args, **kwargs):
+        return super().dict(*args, exclude_none=True, **kwargs)
+
+
+class AbstractProductecaV1Model(AbstractProductecaModel):
+    _config: ConfigProducteca = PrivateAttr()
+
+    @property
+    def endpoint_url(self) -> str:
+        return self._config.get_endpoint(self.endpoint)
