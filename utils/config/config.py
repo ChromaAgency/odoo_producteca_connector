@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-class AConfig:
+class APIConfig:
     base_url:str = 'https://api-external.producteca.com'
     
     @property
@@ -11,8 +11,9 @@ class AConfig:
         return f'{self.base_url}/{endpoint}'
     
 @dataclass
-class ConfigProducteca(AConfig):
-    token:str = None
+class ConfigProducteca(APIConfig):
+    token:str
+    api_key:str
 
     def get_endpoint(self, endpoint: str):
         return f'{self.base_url}/{endpoint}' 
@@ -21,7 +22,7 @@ class ConfigProducteca(AConfig):
     def headers(self):
        return {
         "Content-Type": "application/json",
-        "authorization": f"Token {self.token}",
+        "authorization": f"Bearer {self.token}",
         "Accept": "*/*"
     }
 

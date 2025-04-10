@@ -18,7 +18,6 @@ class AbstractProductecaDataclass:
 @dataclass
 class AbstractProductecaV1Dataclass(AbstractProductecaDataclass):
     config:ConfigProducteca = field( metadata=config(exclude=lambda x:True))
-    # endpoint:str = field(default='no_endpoint', metadata=config(exclude=lambda x: True))
 
     @property
     def endpoint_url(self):
