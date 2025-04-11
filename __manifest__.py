@@ -22,6 +22,7 @@
         'views/producteca_account_views.xml', 
         'views/producteca_queue_views.xml',
         'views/producteca_connections_views.xml',
+        'data/ir.cron.xml',
         'security/ir.model.access.csv',
     ],
     'demo': [],

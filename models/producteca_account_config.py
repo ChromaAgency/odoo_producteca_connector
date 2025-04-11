@@ -22,3 +22,4 @@ class ProductecaAccountConfig(models.Model):
     is_stock_modified_by_producteca = fields.Boolean(string='Is Stock Modified by Producteca?')
     is_product_price_modified_by_producteca = fields.Boolean(string='Is Product Price Modified by Producteca?')
     is_producteca_able_to_create_products = fields.Boolean(string='Is Producteca Able to Create Products?')
+    create_if_dosnt_exist = fields.Boolean(string='Create If The Product Dosnt Exists')

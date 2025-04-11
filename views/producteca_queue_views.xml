@@ -9,7 +9,7 @@
                 <field name="active"/>
                 <field name="producteca_account_id"/>
                 <field name="producteca_method"/>
-                <field name="producteca_url"/>
+                <field name="model"/>
                 <field name="producteca_response"/>
             </list>
         </field>
@@ -25,7 +25,7 @@
                         <field name="active"/>
                         <field name="producteca_account_id"/>
                         <field name="producteca_method"/>
-                        <field name="producteca_url"/>
+                        <field name="model"/>
                     </group>
                     <notebook>
                         <page string="Contenido">

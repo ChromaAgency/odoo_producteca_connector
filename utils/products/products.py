@@ -118,18 +118,18 @@ class Product(BaseModel):
     config: Optional[ConfigProducteca] = Field(default=None, exclude=True)
     create_if_not_exist: bool = False
     product_id: Optional[int] = None
-    sku: str = ''
+    sku: Optional[str]= ''
     variation_id: Optional[int] = None
-    code: str = ''
-    name: str = ''
-    barcode: str = ''
+    code: Optional[str] = ''
+    name: Optional[str] = ''
+    barcode: Optional[str] = ''
     attributes: List[Attributes] = []
     tags: List[Tags] = []
     buying_price: Optional[float] = None
     dimensions: Optional[dict] = None
     category: Optional[Category] = None
-    brand: str = ''
-    notes: str = ''
+    brand: Optional[str] = ''
+    notes: Optional[str] = ''
     deals: List[Deals] = []
     stocks: List[Stocks] = []
     prices: List[Prices] = []

@@ -1,5 +1,6 @@
 from odoo import models, fields, api
-
+from ..utils.products.products import Product
+from ..utils.config.config import ConfigProducteca
 
 class ProductecaQueue(models.Model):
     _name = "producteca.queue"
@@ -11,43 +12,53 @@ class ProductecaQueue(models.Model):
     )
     producteca_body = fields.Text(string="Producteca Body")
     producteca_method = fields.Selection(
-        [("get", "Get"), ("post", "Post"), ("put", "Put"), ("delete", "Delete")],
+        [("create", "Create"), ("get", "Get"), ("post", "Post"), ("put", "Put"), ("delete", "Delete")],
         string="Producteca Method",
     )
-    producteca_url = fields.Char(string="Producteca URL")
+    model = fields.Char(string="Model")
     producteca_response = fields.Text(string="Producteca Response")
+    odoo_item_id = fields.Integer(string="Odoo Item ID", readonly=True)
 
-    def queue_to_create_products_in_producteca(self, products):
-        vals_to_create = []
+    def process_product_create_queue(self):
+        queue_records = self.search([('producteca_method', '=', 'create'), ('active', '=', True), ('model', '=', 'product')])
+        connection_array_dict = []
+        for queue_record in queue_records:
+            config = ConfigProducteca(queue_record.producteca_account_id.api_key, queue_record.producteca_account_id.bearer_token)
+            product = Product(config=config, create_if_not_exist=queue_record.producteca_account_id.create_if_dosnt_exist, **queue_record.producteca_body)
+            product_response = product.create()
+            queue_record.producteca_response = product_response.model_dump_json(exclude_none=True)
+            connection_array_dict.append({
+                "producteca_account_id": queue_record.producteca_account_id,
+                "product_id": queue_record.odoo_item_id,
+                "producteca_id": product_response.product_id
+            })
+        self.env['producteca.connections'].create(connection_array_dict)
+
+
+    def create_product_in_producteca_queue(self):
+        producteca_account_ids = self.env['producteca.account'].sudo().search([('active', '=', True),('company_id', '=', self.env.company.id), ('is_producteca_able_to_create_products', '=', True)])
+        if not producteca_account_ids:
+            return False
+        products = self.env['product.product'].sudo().search([('is_producteca_product', '=', True), ('is_already_sync', '=', False)])
+        if not products:
+            return False
+        queue_records = []
         for product in products:
-            producteca_product_dict = self._prepare_producteca_product_dict(product) #Is this too much processing? We should move it to the prompt? how?
-            vals_to_create.append(producteca_product_dict)
-        queue_products = self.create(vals_to_create)
-        return queue_products
+            for account in producteca_account_ids:
+                product_dict = self._obtain_pricelist_for_product(product, account)
+                queue_records.append({
+                    "producteca_account_id": account,
+                    "producteca_body": product_dict,
+                    "producteca_method": "create",
+                    "model": "product",
+                    "odoo_item_id": product.id
+            })
+        self.create(queue_records)
+        return True
 
-    def get_dimensions_from_volume(self, volume, aspect_ratio=1.0):
-        #This is an AI func should be tested
-        if volume <= 0:
-            return 0, 0, 0
-        
-        # Para simplificar, suponemos que el producto es un cubo
-        side = volume ** (1/3)  # Raíz cúbica del volumen
-        
-        # Si queremos mantener una relación de aspecto específica
-        if aspect_ratio != 1.0:
-            # Ajustamos las dimensiones para mantener la relación de aspecto
-            length = side * aspect_ratio
-            width = side
-            height = volume / (length * width)
-        else:
-            # Si no hay relación de aspecto específica, usamos un cubo
-            length = width = height = side
-        
-        return length, width, height
 
-    #Product product
+
     def _obtain_pricelist_for_product(self, product):
-        """Obtiene la lista de precios para el producto"""
         pricelists = self.env['product.pricelist'].search([('company_id', '=', product.company_id.id), ('active', '=', True), ('currency_id', '=', product.currency_id.id)])
         product_in_pricelist = []
         if not pricelists:
@@ -61,14 +72,13 @@ class ProductecaQueue(models.Model):
                 continue
         return product_in_pricelist
 
-    def _obtain_stocks_for_product(self, product):
-        stock_by_warehouse = self.env['stock.quant'].search([('product_id', '=', product.id), ('location_id.usage', '=', 'internal')])
+    def _obtain_stocks_for_product(self, product, account):
+        stock_by_warehouse = self.env['stock.quant'].search([('product_id', '=', product.id), ('location_id.usage', '=', 'internal'), ('location_id', 'in', account.warehouse_location_ids)])
         return stock_by_warehouse
 
-    def _prepare_producteca_product_dict(self, product):
-        length, width, height = self.get_dimensions_from_volume(product.volume)
+    def _prepare_producteca_product_dict(self, product, account):
         pricelists = self._obtain_pricelist_for_product(product)
-        stock_by_warehouse = self._obtain_stocks_for_product(product)
+        stock_by_warehouse = self._obtain_stocks_for_product(product, account)
         product_data = {
             "sku": product.default_code or '',
             "variationId": product.id,
@@ -80,9 +90,9 @@ class ProductecaQueue(models.Model):
             "buyingPrice": product.lst_price,
             "dimensions": {
                 "weight": product.weight if product.weight else 0,
-                "width": width,
-                "height": height,
-                "length": length,
+                "width": 0,
+                "height": 0,
+                "length": 0, #TODO
                 "pieces": 0,
             },
             "category": product.categ_id.complete_name,
@@ -95,46 +105,3 @@ class ProductecaQueue(models.Model):
         }
 
         return {k: v for k, v in product_data.items() if v is not None}
-
-
-#    config: Optional[ConfigProducteca] = Field(default=None, exclude=True)
-#     create_if_not_exist: bool = False
-#     product_id: Optional[int] = None
-#     sku: str = ''
-#     variation_id: Optional[int] = None
-#     code: str = ''
-#     name: str = ''
-#     barcode: str = ''
-#     attributes: List[Attributes] = []
-#     tags: List[Tags] = []
-#     buying_price: Optional[float] = None
-#     dimensions: Optional[dict] = None
-#     category: Optional[Category] = None
-#     brand: str = ''
-#     notes: str = ''
-#     deals: List[Deals] = []
-#     stocks: List[Stocks] = []
-#     prices: List[Prices] = []
-#     pictures: List[Pictures] = []
-#     integrations: Optional[List[Integrations]] = None
-#     variations: Optional[List[Variation]] = None
-#     is_simple: Optional[bool] = None
-#     has_variations: Optional[bool] = None
-#     thumbnail: Optional[str] = None
-#     is_archived: Optional[bool] = None
-#     metadata: Optional[List[str]] = None
-#     is_original: Optional[bool] = None
-#     id: Optional[int] = None
-#     attributes_hash: Optional[str] = None
-#     primary_color: Optional[str] = None
-#     has_custom_shipping_costs: Optional[bool] = None
-#     shipping: Optional[Shipping] = None
-#     mshops_shipping: Optional[MShopsShipping] = None
-#     add_free_shipping_cost_to_price: Optional[bool] = None
-#     attribute_completion: Optional[AttributeCompletion] = None
-#     catalog_products: Optional[List[str]] = None
-#     warranty: Optional[str] = None
-#     domain: Optional[str] = None
-#     listing_type_id: Optional[str] = None
-#     catalog_products_status: Optional[str] = None
-#     tags_list: Optional[List[str]] = None
