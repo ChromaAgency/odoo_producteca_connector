@@ -5,4 +5,3 @@ access_producteca_connections_user,producteca.connections.user,model_producteca_
 access_producteca_connections_manager,producteca.connections.manager,model_producteca_connections,base.group_erp_manager,1,1,1,1
 access_producteca_queue_user,producteca.queue.user,model_producteca_queue,base.group_user,1,0,0,0
 access_producteca_queue_manager,producteca.queue.manager,model_producteca_queue,base.group_erp_manager,1,1,1,1
-access_producteca_account_selection,producteca.account.selection,model_producteca_account_selection,base.group_user,1,1,1,1

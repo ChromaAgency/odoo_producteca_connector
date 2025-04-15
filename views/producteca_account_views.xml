@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <list string="Producteca Accounts">
                 <field name="account_name"/>
-                <field name="company_id"/>
+                <field name="company_id" widget="many2one_tags"/>
                 <field name="is_stock_modified_by_producteca"/>
                 <field name="is_product_price_modified_by_producteca"/>
             </list>
@@ -30,14 +30,16 @@
                             <group>
                                 <field name="company_id"/>
                                 <field name="imported_sale_action"/>
-                                <field name="warehouse_location_ids"/>
+                                <field name="warehouse_location_ids" widget="many2many_tags"/>
                                 <field name="pricelist_to_sync"/>
                             </group>
                         </page>
                         <page string="Opciones">
                             <group>
+                                <field name="is_producteca_able_to_create_products"/>
                                 <field name="is_stock_modified_by_producteca"/>
                                 <field name="is_product_price_modified_by_producteca"/>
+                                <field name="create_if_dosnt_exist"/>
                             </group>
                         </page>
                     </notebook>

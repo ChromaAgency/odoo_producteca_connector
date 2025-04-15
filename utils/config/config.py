@@ -23,5 +23,6 @@ class ConfigProducteca(APIConfig):
         return {
             "Content-Type": "application/json",
             "authorization": f"Bearer {self.token}",
+            "x-api-key": self.api_key,
             "Accept": "*/*"
         }

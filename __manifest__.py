@@ -15,7 +15,7 @@
     'category': 'Uncategorized',
     'version': '1.0',
 
-    'depends': ['base','stock','sale','sale_management','contacts'],
+    'depends': ['base','stock','sale','sale_management','contacts','product_brand'],
 
     'data': [
         'data/producteca_menu.xml', 
@@ -23,6 +23,7 @@
         'views/producteca_queue_views.xml',
         'views/producteca_connections_views.xml',
         'data/ir.cron.xml',
+        'views/product_template.xml',
         'security/ir.model.access.csv',
     ],
     'demo': [],

@@ -1,170 +1,113 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, Field
 import requests
 from ..config.config import ConfigProducteca
+import logging
 
+_logger = logging.getLogger(__name__)
 
-class Component(BaseModel):
-    quantity: Optional[int] = Field(default=None)
-    variation_id: Optional[int] = Field(default=None)
-    product_id: Optional[int] = Field(default=None)
+# Models for nested structures
 
+class Attribute(BaseModel):
+    key: str
+    value: str
 
-class Pictures(BaseModel):
-    url: str = ''
+class Tag(BaseModel):
+    tag: str
 
+class Dimensions(BaseModel):
+    weight: Optional[float] = None
+    width: Optional[float] = None
+    height: Optional[float] = None
+    length: Optional[float] = None
+    pieces: Optional[int] = None
 
-class Stocks(BaseModel):
-    quantity: Optional[int] = Field(default=None)
-    available_quantity: Optional[int] = Field(default=None)
-    warehouse: str = ''
-    warehouse_id: Optional[int] = Field(default=None)
-    reserved: Optional[int] = Field(default=None)
-    available: Optional[int] = Field(default=None)
+class Deal(BaseModel):
+    campaign: str
+    regular_price: Optional[float] = Field(default=None, alias='regularPrice')
+    deal_price: Optional[float] = Field(default=None, alias='dealPrice')
 
+class Stock(BaseModel):
+    quantity: Optional[int] = None
+    available_quantity: Optional[int] = Field(default=None, alias='availableQuantity')
+    warehouse: Optional[str] = None
+    warehouse_id: Optional[int] = Field(default=None, alias='warehouseId')
+    reserved: Optional[int] = None
+    available: Optional[int] = None
 
-class Attributes(BaseModel):
-    key: str = ''
-    value: str = ''
+class Price(BaseModel):
+    amount: Optional[float] = None
+    currency: str
+    price_list: str = Field(alias='priceList')
+    price_list_id: Optional[int] = Field(default=None, alias='priceListId')
 
+class Picture(BaseModel):
+    url: str
 
-class Integrations(BaseModel):
-    app: Optional[int] = Field(default=None)
-    integration_id: Optional[str] = Field(default=None)
-    permalink: Optional[str] = Field(default=None)
-    status: Optional[str] = Field(default=None)
-    listing_type: Optional[str] = Field(default=None)
-    safety_stock: Optional[int] = Field(default=None)
-    synchronize_stock: Optional[bool] = Field(default=None)
-    is_active: Optional[bool] = Field(default=None)
-    is_active_or_paused: Optional[bool] = Field(default=None)
-    id: Optional[int] = Field(default=None)
-    parent_integration: Optional[str] = Field(default=None)
-
+class Integration(BaseModel):
+    app: Optional[int] = None
+    integration_id: Optional[str] = Field(default=None, alias='integrationId')
+    permalink: Optional[str] = None
+    status: Optional[str] = None
+    listing_type: Optional[str] = Field(default=None, alias='listingType')
+    safety_stock: Optional[int] = Field(default=None, alias='safetyStock')
+    synchronize_stock: Optional[bool] = Field(default=None, alias='synchronizeStock')
+    is_active: Optional[bool] = Field(default=None, alias='isActive')
+    is_active_or_paused: Optional[bool] = Field(default=None, alias='isActiveOrPaused')
+    id: Optional[int] = None
+    parent_integration: Optional[str] = Field(default=None, alias='parentIntegration')
 
 class Variation(BaseModel):
-    variation_id: Optional[int] = Field(default=None)
-    components: Optional[List[Component]] = Field(default=None)
-    pictures: Optional[List[Pictures]] = Field(default=None)
-    stocks: Optional[List[Stocks]] = Field(default=None)
-    attributes_hash: Optional[str] = Field(default=None)
-    primary_color: Optional[str] = Field(default=None)
-    thumbnail: Optional[str] = Field(default=None)
-    attributes: Optional[List[Attributes]] = Field(default=None)
-    integrations: Optional[List[Integrations]] = Field(default=None)
-    id: Optional[int] = Field(default=None)
-    sku: Optional[str] = Field(default=None)
-    barcode: Optional[str] = Field(default=None)
-
-
-class ResultItem(BaseModel):
-    company_id: Optional[int] = Field(default=None)
-    product_id: Optional[int] = Field(default=None)
-    variations: Optional[List[Variation]] = Field(default=None)
-    id: Optional[str] = Field(default=None)
-
-
-class ResultsResponse(BaseModel):
-    results: Optional[List[ResultItem]] = Field(default=None)
-    count: Optional[int] = Field(default=None)
-
-
-class Prices(BaseModel):
-    amount: Optional[float] = Field(default=None)
-    currency: str = ''
-    price_list: str = ''
-    price_list_id: Optional[int] = Field(default=None)
-
-
-class Tags(BaseModel):
-    tag: str = ''
-
-
-class Shipping(BaseModel):
-    local_pickup: Optional[bool] = Field(default=None)
-    mode: Optional[str] = Field(default=None)
-    free_shipping: Optional[bool] = Field(default=None)
-    free_shipping_cost: Optional[float] = Field(default=None)
-    mandatory_free_shipping: Optional[bool] = Field(default=None)
-    free_shipping_method: Optional[str] = Field(default=None)
-
-
-class MShopsShipping(BaseModel):
-    enabled: Optional[bool] = Field(default=None)
-
-
-class Category(BaseModel):
-    meli_id: Optional[str] = Field(default=None)
-    accepts_mercadoenvios: Optional[bool] = Field(default=None)
-    suggest: Optional[bool] = Field(default=None)
-    fixed: Optional[bool] = Field(default=None)
-
-
-class AttributeCompletion(BaseModel):
-    product_identifier_status: Optional[str] = Field(default=None)
-    data_sheet_status: Optional[str] = Field(default=None)
-    status: Optional[str] = Field(default=None)
-    count: Optional[int] = Field(default=None)
-    total: Optional[int] = Field(default=None)
-
-
-class Deals(BaseModel):
-    campaign: str = ''
-    regular_price: Optional[float] = None
-    deal_price: Optional[float] = None
-
-
-class Product(BaseModel):
-    config: Optional[ConfigProducteca] = Field(default=None, exclude=True)
-    create_if_not_exist: bool = False
-    product_id: Optional[int] = None
-    sku: Optional[str]= ''
-    variation_id: Optional[int] = None
-    code: Optional[str] = ''
-    name: Optional[str] = ''
-    barcode: Optional[str] = ''
-    attributes: List[Attributes] = []
-    tags: List[Tags] = []
-    buying_price: Optional[float] = None
-    dimensions: Optional[dict] = None
-    category: Optional[Category] = None
-    brand: Optional[str] = ''
-    notes: Optional[str] = ''
-    deals: List[Deals] = []
-    stocks: List[Stocks] = []
-    prices: List[Prices] = []
-    pictures: List[Pictures] = []
-    integrations: Optional[List[Integrations]] = None
-    variations: Optional[List[Variation]] = None
-    is_simple: Optional[bool] = None
-    has_variations: Optional[bool] = None
+    variation_id: Optional[int] = Field(default=None, alias='variationId')
+    components: Optional[List] = None  # No se incluyó `Component` ya que no figura en el POST
+    pictures: Optional[List[Picture]] = None
+    stocks: Optional[List[Stock]] = None
+    attributes_hash: Optional[str] = Field(default=None, alias='attributesHash')
+    primary_color: Optional[str] = Field(default=None, alias='primaryColor')
     thumbnail: Optional[str] = None
-    is_archived: Optional[bool] = None
-    metadata: Optional[List[str]] = None
-    is_original: Optional[bool] = None
+    attributes: Optional[List[Attribute]] = None
+    integrations: Optional[List[Integration]] = None
     id: Optional[int] = None
-    attributes_hash: Optional[str] = None
-    primary_color: Optional[str] = None
-    has_custom_shipping_costs: Optional[bool] = None
-    shipping: Optional[Shipping] = None
-    mshops_shipping: Optional[MShopsShipping] = None
-    add_free_shipping_cost_to_price: Optional[bool] = None
-    attribute_completion: Optional[AttributeCompletion] = None
-    catalog_products: Optional[List[str]] = None
-    warranty: Optional[str] = None
-    domain: Optional[str] = None
-    listing_type_id: Optional[str] = None
-    catalog_products_status: Optional[str] = None
-    tags_list: Optional[List[str]] = None
+    sku: Optional[str] = None
+    barcode: Optional[str] = None
 
+# Model base para los productos
+class BaseProduct(BaseModel):
+    sku: Optional[str] = None
+    variation_id: Optional[int] = Field(default=None, alias='variationId')
+    code: Optional[str] = None
+    name: Optional[str] = None
+    barcode: Optional[str] = None
+    attributes: Optional[List[Attribute]] = None
+    tags: Optional[List[str]] = None
+    buying_price: Optional[float] = Field(default=None, alias='buyingPrice')
+    dimensions: Optional[Dimensions] = None
+    category: Optional[Union[str, dict]] = None  # Puede ser string en POST o dict en GET Meli
+    brand: Optional[str] = None
+    notes: Optional[str] = None
+    deals: Optional[List[Deal]] = None
+    stocks: Optional[List[Stock]] = None
+    prices: Optional[List[Price]] = None
+    pictures: Optional[List[Picture]] = None
+
+# Modelo para sincronización / POST
+class Product(BaseProduct):
+    config: Optional[ConfigProducteca] = Field(default=None, exclude=True)
     endpoint: str = Field(default='products', exclude=True)
+    create_if_it_doesnt_exist: bool = Field(default=False, exclude=True)
 
     def create(self):
         endpoint_url = self.config.get_endpoint(f'{self.endpoint}/synchronize')
         headers = self.config.headers.copy()
-        headers.update({"createifitdoesntexist": str(self.create_if_not_exist).lower()})
-        response = requests.post(endpoint_url, data=self.model_dump_json(exclude_none=True), headers=headers)
-        return Product(**response.json())
+        headers.update({"createifitdoesntexist": str(self.create_if_it_doesnt_exist).lower()})
+        data = self.model_dump_json(by_alias=True, exclude_none=True)
+        _logger.info(data)
+        response = requests.post(endpoint_url, data=data, headers=headers)
+        if response.status_code == 204:
+            final_response = {"Message":"Product does not exist and the resquest cant create"}
+        else:
+            final_response = response.json()
+        return final_response, response.status_code
 
     @classmethod
     def get(cls, config: ConfigProducteca, product_id: int):
@@ -186,3 +129,43 @@ class Product(BaseModel):
         headers = config.headers
         response = requests.get(endpoint_url, headers=headers)
         return cls(config=config, **response.json())
+
+# Modelo con campos extra de la vista Meli
+class MeliCategory(BaseModel):
+    meli_id: Optional[str] = Field(default=None, alias='meliId')
+    accepts_mercadoenvios: Optional[bool] = Field(default=None, alias='acceptsMercadoenvios')
+    suggest: Optional[bool] = None
+    fixed: Optional[bool] = None
+
+class Shipping(BaseModel):
+    local_pickup: Optional[bool] = Field(default=None, alias='localPickup')
+    mode: Optional[str] = None
+    free_shipping: Optional[bool] = Field(default=None, alias='freeShipping')
+    free_shipping_cost: Optional[float] = Field(default=None, alias='freeShippingCost')
+    mandatory_free_shipping: Optional[bool] = Field(default=None, alias='mandatoryFreeShipping')
+    free_shipping_method: Optional[str] = Field(default=None, alias='freeShippingMethod')
+
+class MShopsShipping(BaseModel):
+    enabled: Optional[bool] = None
+
+class AttributeCompletion(BaseModel):
+    product_identifier_status: Optional[str] = Field(default=None, alias='productIdentifierStatus')
+    data_sheet_status: Optional[str] = Field(default=None, alias='dataSheetStatus')
+    status: Optional[str] = None
+    count: Optional[int] = None
+    total: Optional[int] = None
+
+class MeliProduct(BaseProduct):
+    product_id: Optional[int] = Field(default=None, alias='productId')
+    has_custom_shipping_costs: Optional[bool] = Field(default=None, alias='hasCustomShippingCosts')
+    shipping: Optional[Shipping] = None
+    mshops_shipping: Optional[MShopsShipping] = Field(default=None, alias='mShopsShipping')
+    add_free_shipping_cost_to_price: Optional[bool] = Field(default=None, alias='addFreeShippingCostToPrice')
+    category: Optional[MeliCategory] = None
+    attribute_completion: Optional[AttributeCompletion] = Field(default=None, alias='attributeCompletion')
+    catalog_products: Optional[List[str]] = Field(default=None, alias='catalogProducts')
+    warranty: Optional[str] = None
+    domain: Optional[str] = None
+    listing_type_id: Optional[str] = Field(default=None, alias='listingTypeId')
+    catalog_products_status: Optional[str] = Field(default=None, alias='catalogProductsStatus')
+

@@ -6,6 +6,7 @@ class ProductecaAccountConfig(models.Model):
     _description = 'Producteca Account'
     _rec_name = 'account_name'
 
+    active= fields.Boolean(string='Active', default=True)
     account_name = fields.Char(string='Account Name', required=True)
     api_key = fields.Char(string='API Key')
     bearer_token = fields.Char(string='Bearer Token')
@@ -16,7 +17,7 @@ class ProductecaAccountConfig(models.Model):
         ("draft_invoice", "Confirm the sale order and create draft invoice"),
         ("confirm", "Confirm the sale order and create confirmed invoice"),
     ], string="Imported Sale Action")
-    warehouse_location_ids = fields.Many2one('stock.location', string='Warehouse Location')
+    warehouse_location_ids = fields.Many2many('stock.location', string='Warehouse Location')
 
     pricelist_to_sync = fields.Many2one('product.pricelist', string='Pricelist to Sync in Producteca')
     is_stock_modified_by_producteca = fields.Boolean(string='Is Stock Modified by Producteca?')

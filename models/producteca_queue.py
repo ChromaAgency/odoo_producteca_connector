@@ -1,6 +1,9 @@
 from odoo import models, fields, api
 from ..utils.products.products import Product
 from ..utils.config.config import ConfigProducteca
+import logging
+ACCEPTATION_CODES = [200, 201, 202, 205, 206, 207]
+_logger = logging.getLogger(__name__)
 
 class ProductecaQueue(models.Model):
     _name = "producteca.queue"
@@ -12,51 +15,16 @@ class ProductecaQueue(models.Model):
     )
     producteca_body = fields.Text(string="Producteca Body")
     producteca_method = fields.Selection(
-        [("create", "Create"), ("get", "Get"), ("post", "Post"), ("put", "Put"), ("delete", "Delete")],
+        [("create", "Create"),("update", "Update"), ("get", "Get"), ("post", "Post"), ("put", "Put"), ("delete", "Delete")],
         string="Producteca Method",
     )
     model = fields.Char(string="Model")
     producteca_response = fields.Text(string="Producteca Response")
     odoo_item_id = fields.Integer(string="Odoo Item ID", readonly=True)
-
-    def process_product_create_queue(self):
-        queue_records = self.search([('producteca_method', '=', 'create'), ('active', '=', True), ('model', '=', 'product')])
-        connection_array_dict = []
-        for queue_record in queue_records:
-            config = ConfigProducteca(queue_record.producteca_account_id.api_key, queue_record.producteca_account_id.bearer_token)
-            product = Product(config=config, create_if_not_exist=queue_record.producteca_account_id.create_if_dosnt_exist, **queue_record.producteca_body)
-            product_response = product.create()
-            queue_record.producteca_response = product_response.model_dump_json(exclude_none=True)
-            connection_array_dict.append({
-                "producteca_account_id": queue_record.producteca_account_id,
-                "product_id": queue_record.odoo_item_id,
-                "producteca_id": product_response.product_id
-            })
-        self.env['producteca.connections'].create(connection_array_dict)
+    response_status = fields.Char(string="Producteca Response Status")
 
 
-    def create_product_in_producteca_queue(self):
-        producteca_account_ids = self.env['producteca.account'].sudo().search([('active', '=', True),('company_id', '=', self.env.company.id), ('is_producteca_able_to_create_products', '=', True)])
-        if not producteca_account_ids:
-            return False
-        products = self.env['product.product'].sudo().search([('is_producteca_product', '=', True), ('is_already_sync', '=', False)])
-        if not products:
-            return False
-        queue_records = []
-        for product in products:
-            for account in producteca_account_ids:
-                product_dict = self._obtain_pricelist_for_product(product, account)
-                queue_records.append({
-                    "producteca_account_id": account,
-                    "producteca_body": product_dict,
-                    "producteca_method": "create",
-                    "model": "product",
-                    "odoo_item_id": product.id
-            })
-        self.create(queue_records)
-        return True
-
-
+    #### Obtain Product Dict ####
 
     def _obtain_pricelist_for_product(self, product):
         pricelists = self.env['product.pricelist'].search([('company_id', '=', product.company_id.id), ('active', '=', True), ('currency_id', '=', product.currency_id.id)])
@@ -79,29 +47,131 @@ class ProductecaQueue(models.Model):
     def _prepare_producteca_product_dict(self, product, account):
         pricelists = self._obtain_pricelist_for_product(product)
         stock_by_warehouse = self._obtain_stocks_for_product(product, account)
+        image_url = None #TODO
+        deals = None #TODO
         product_data = {
             "sku": product.default_code or '',
             "variationId": product.id,
-            "code": product.default_code or '',
+            "code": str(product.id),
             "name": product.name,
             "barcode": product.barcode or '',
             "attributes": [{"key": variant.attribute_id.name, "value": variant.name} for variant in product.product_template_variant_value_ids],
-            "tags": [tag.name for tag in product.tag_ids],
-            "buyingPrice": product.lst_price,
-            "dimensions": {
+            "tags": [tag.name for tag in product.product_tag_ids],
+            "buyingPrice": product.list_price,
+            "category": product.categ_id.complete_name,
+            "brand": product.product_brand_id.name if product.product_brand_id else None,
+            "notes": product.description if product.description else None,
+            "stocks":[{"quantity": stock.quantity,"availableQuantity": stock.available_quantity,"warehouse": stock.warehouse_id.name if stock.warehouse_id else None} for stock in stock_by_warehouse],
+            "pictures": [{"url": image_url}] if image_url else None
+        }
+        if product.weight:
+            product_data.update({
+                "dimensions": {
                 "weight": product.weight if product.weight else 0,
                 "width": 0,
                 "height": 0,
                 "length": 0, #TODO
                 "pieces": 0,
-            },
-            "category": product.categ_id.complete_name,
-            "brand": product.product_brand_id.name,
-            "notes": product.description,
-            "deals": [], #TODO
-            "stocks": [{"quantity": stock_by_warehouse.quantity, "availableQuantity": stock_by_warehouse.available_quantity, "warehouse": stock_by_warehouse.warehouse_id.name}],
-            "prices": [{"amount": item.fixed_price, "currency": item.currency_id.name, "priceList": item.pricelist_id.name} for item in pricelists],
-            "pictures": [{}],# TODO ?
-        }
+            }})
+        if deals:
+            product_data.update({
+                "deals": deals
+            })
+        if pricelists:
+            product_data.update({
+                "prices": [{"amount": item.fixed_price, "currency": item.currency_id.name, "priceList": item.pricelist_id.name} for item in pricelists]
+            })
 
         return {k: v for k, v in product_data.items() if v is not None}
+
+
+    #### Create in Producteca ####
+
+    def process_product_create_queue(self):
+        queue_records = self.search([('producteca_method', '=', 'create'), ('active', '=', True), ('model', '=', 'product.product')])
+        connection_array_dict = []
+        for queue_record in queue_records:
+            config = ConfigProducteca(
+                token=queue_record.producteca_account_id.bearer_token,
+                api_key=queue_record.producteca_account_id.api_key
+            )
+            _logger.info(config)
+            body_dict = eval(queue_record.producteca_body)
+            product = Product(
+                config=config,
+                create_if_it_doesnt_exist=queue_record.producteca_account_id.create_if_dosnt_exist,
+                **body_dict
+            )
+            product_response, response_status = product.create()
+            _logger.info(product_response)
+            queue_record.producteca_response = product_response
+            queue_record.response_status = response_status
+            _logger.info(product_response)
+            if response_status in ACCEPTATION_CODES:
+                queue_record.active = False
+                connection_array_dict.append({
+                    "producteca_account_id": queue_record.producteca_account_id.id,
+                    "product_id": queue_record.odoo_item_id,
+                    "producteca_id": product_response.get('id')
+                })
+        self.env['producteca.connections'].create(connection_array_dict)
+
+
+    def create_product_in_producteca_queue(self):
+        producteca_account_ids = self.env['producteca.account'].sudo().search([('active', '=', True),('company_id', '=', self.env.company.id)])
+        if not producteca_account_ids:
+            return False
+        products = self.env['product.product'].sudo().search([('is_producteca_product', '=', True), ('is_already_sync', '=', False)])
+        if not products:
+            return False
+        queue_records = []
+        for product in products:
+            for account in producteca_account_ids:
+                if not account.create_if_dosnt_exist:
+                    continue
+                product_dict = self._prepare_producteca_product_dict(product, account)
+                queue_records.append({
+                    "producteca_account_id": account.id,
+                    "producteca_body": product_dict,
+                    "producteca_method": "create",
+                    "model": "product.product",
+                    "odoo_item_id": product.id
+            })
+        self.create(queue_records)
+        products.write({'is_already_sync': True})
+        return True
+
+    #### Update producteca product ####
+
+    def process_product_update_queue(self):
+        queue_records = self.search([('producteca_method', '=', 'update'), ('active', '=', True), ('model', '=', 'product.product')])
+        if not queue_records:
+            return False
+        product_ids_in_queue = [record.odoo_item_id for record in queue_records]
+        producteca_connections = self.env['producteca.connections'].sudo().search([('product_id', 'in', product_ids_in_queue)])
+        queue_info = {record.odoo_item_id: record for record in queue_records}
+        if not producteca_connections:
+            return False
+        for connection in producteca_connections:
+            queue_record = queue_info.get(connection.product_id.id)
+            if not queue_record:
+                continue
+            config = ConfigProducteca(
+                token=connection.producteca_account_id.bearer_token,
+                api_key=connection.producteca_account_id.api_key
+            )
+            body_dict = {
+                "code":str(connection.product_id.id),
+                "buying_price": float(queue_record.producteca_body)
+            }
+            product = Product(
+                config=config,
+                create_if_it_doesnt_exist=connection.producteca_account_id.create_if_dosnt_exist,
+                **body_dict
+            )
+            product_response, response_status = product.update()
+            queue_record.producteca_response = product_response
+            queue_record.response_status = response_status
+            if response_status in ACCEPTATION_CODES:
+                queue_record.active = False
+
