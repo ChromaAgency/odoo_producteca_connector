@@ -1,4 +1,5 @@
 from odoo import models, fields
+from odoo.exceptions import UserError
 
 class ProductecaProductsWizard(models.TransientModel):
     _name = 'producteca.products.wizard'
@@ -16,4 +17,6 @@ class ProductecaProductsWizard(models.TransientModel):
 
     def action_obtain_products(self):
         self.env['producteca.queue'].sudo().create_obtain_from_producteca_queue(self.search_text, self.producteca_account_id)
-        return {'type': 'ir.actions.act_window_close'}
+        if self.producteca_account_id.is_producteca_able_to_create_products:        
+            return {'type': 'ir.actions.act_window_close'}
+        raise UserError('La cuenta de producteca no tiene permiso de crear productos en Odoo')
