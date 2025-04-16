@@ -24,6 +24,8 @@
         'views/producteca_connections_views.xml',
         'data/ir.cron.xml',
         'views/product_template.xml',
+        'views/stock_warehouse.xml',
+        'wizards/import_producteca_product.xml',
         'security/ir.model.access.csv',
     ],
     'demo': [],

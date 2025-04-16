@@ -72,15 +72,18 @@ class Variation(BaseModel):
     barcode: Optional[str] = None
 
 # Model base para los productos
-class BaseProduct(BaseModel):
+class Product(BaseModel):
+    config: Optional[ConfigProducteca] = Field(default=None, exclude=True)
+    endpoint: str = Field(default='products', exclude=True)
+    create_if_it_doesnt_exist: bool = Field(default=False, exclude=True)
     sku: Optional[str] = None
-    variation_id: Optional[int] = Field(default=None, alias='variationId')
+    variation_id: Optional[int] = None
     code: Optional[str] = None
     name: Optional[str] = None
     barcode: Optional[str] = None
     attributes: Optional[List[Attribute]] = None
     tags: Optional[List[str]] = None
-    buying_price: Optional[float] = Field(default=None, alias='buyingPrice')
+    buying_price: Optional[float] = None
     dimensions: Optional[Dimensions] = None
     category: Optional[Union[str, dict]] = None  # Puede ser string en POST o dict en GET Meli
     brand: Optional[str] = None
@@ -90,21 +93,30 @@ class BaseProduct(BaseModel):
     prices: Optional[List[Price]] = None
     pictures: Optional[List[Picture]] = None
 
+
 # Modelo para sincronización / POST
-class Product(BaseProduct):
-    config: Optional[ConfigProducteca] = Field(default=None, exclude=True)
-    endpoint: str = Field(default='products', exclude=True)
-    create_if_it_doesnt_exist: bool = Field(default=False, exclude=True)
 
     def create(self):
         endpoint_url = self.config.get_endpoint(f'{self.endpoint}/synchronize')
         headers = self.config.headers.copy()
         headers.update({"createifitdoesntexist": str(self.create_if_it_doesnt_exist).lower()})
         data = self.model_dump_json(by_alias=True, exclude_none=True)
-        _logger.info(data)
         response = requests.post(endpoint_url, data=data, headers=headers)
         if response.status_code == 204:
-            final_response = {"Message":"Product does not exist and the resquest cant create"}
+            final_response = {"Message":"Product does not exist and the request cant create if it does not exist"}
+        else:
+            final_response = response.json()
+        return final_response, response.status_code
+
+    def update(self):
+        endpoint_url = self.config.get_endpoint(f'{self.endpoint}/synchronize')
+        headers = self.config.headers.copy()
+        data = self.model_dump_json(by_alias=True, exclude_none=True)
+        if not self.code and not self.sku:
+            return {"Message":"Sku or code should be provided to update the product"}, 204
+        response = requests.post(endpoint_url, data=data, headers=headers)
+        if response.status_code == 204:
+            final_response = {"Message":"Product does not exist and the request cant create if it does not exist"}
         else:
             final_response = response.json()
         return final_response, response.status_code
@@ -114,21 +126,21 @@ class Product(BaseProduct):
         endpoint_url = config.get_endpoint(f'{cls.endpoint}/{product_id}')
         headers = config.headers
         response = requests.get(endpoint_url, headers=headers)
-        return cls(config=config, **response.json())
+        return cls(config=config, **response.json()), response.status_code
 
     @classmethod
     def get_bundle(cls, config: ConfigProducteca, product_id: int):
         endpoint_url = config.get_endpoint(f'{cls.endpoint}/{product_id}/bundles')
         headers = config.headers
         response = requests.get(endpoint_url, headers=headers)
-        return cls(config=config, **response.json())
+        return cls(config=config, **response.json()), response.status_code
 
     @classmethod
     def get_ml_integration(cls, config: ConfigProducteca, product_id: int):
         endpoint_url = config.get_endpoint(f'{cls.endpoint}/{product_id}/listintegration')
         headers = config.headers
         response = requests.get(endpoint_url, headers=headers)
-        return cls(config=config, **response.json())
+        return cls(config=config, **response.json()), response.status_code
 
 # Modelo con campos extra de la vista Meli
 class MeliCategory(BaseModel):
@@ -155,7 +167,7 @@ class AttributeCompletion(BaseModel):
     count: Optional[int] = None
     total: Optional[int] = None
 
-class MeliProduct(BaseProduct):
+class MeliProduct(Product):
     product_id: Optional[int] = Field(default=None, alias='productId')
     has_custom_shipping_costs: Optional[bool] = Field(default=None, alias='hasCustomShippingCosts')
     shipping: Optional[Shipping] = None

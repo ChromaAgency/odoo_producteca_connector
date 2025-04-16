@@ -11,7 +11,6 @@ class ProductProduct(models.Model):
 
 
     def write(self, vals):
-        _logger.info('write vals %s',vals)
         _ = super().write(vals)
         producteca_queue = []
         for rec in self:
@@ -23,6 +22,6 @@ class ProductProduct(models.Model):
                     "odoo_item_id": rec.id
                 })
         if producteca_queue:
-            self.env['producteca.queue'].create(producteca_queue)
+            self.env['producteca.queue'].sudo().create(producteca_queue)
         return _
 

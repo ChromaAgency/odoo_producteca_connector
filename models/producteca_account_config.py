@@ -17,7 +17,7 @@ class ProductecaAccountConfig(models.Model):
         ("draft_invoice", "Confirm the sale order and create draft invoice"),
         ("confirm", "Confirm the sale order and create confirmed invoice"),
     ], string="Imported Sale Action")
-    warehouse_location_ids = fields.Many2many('stock.location', string='Warehouse Location')
+    warehouse_ids = fields.Many2many('stock.warehouse', string='Warehouse Location')
 
     pricelist_to_sync = fields.Many2one('product.pricelist', string='Pricelist to Sync in Producteca')
     is_stock_modified_by_producteca = fields.Boolean(string='Is Stock Modified by Producteca?')

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_producteca_products_wizard_form" model="ir.ui.view">
+        <field name="name">producteca.products.wizard.form</field>
+        <field name="model">producteca.products.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Obtener Productos de Producteca">
+                <group>
+                    <field name="producteca_account_ids" widget="many2many_tags"/>
+                    <field name="search_text"/>
+                </group>
+                <footer>
+                    <button name="action_obtain_products" string="Obtener Productos" type="object" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_producteca_products_wizard" model="ir.actions.act_window">
+        <field name="name">Obtener Productos de Producteca</field>
+        <field name="res_model">producteca.products.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem
+        id="menu_producteca_products"
+        name="Obtener Productos de Producteca"
+        parent="menu_producteca_root"
+        action="action_producteca_products_wizard"
+        sequence="10"/>
+</odoo>

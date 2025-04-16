@@ -1,0 +1,1 @@
+from . import import_producteca_product

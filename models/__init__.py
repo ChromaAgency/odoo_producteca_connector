@@ -4,3 +4,5 @@ from . import producteca_connections
 from . import producteca_queue
 from . import product_product
 from . import product_template
+from . import stock_quant
+from . import stock_warehouse

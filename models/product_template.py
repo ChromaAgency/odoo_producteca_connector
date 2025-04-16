@@ -24,6 +24,6 @@ class ProductTemplate(models.Model):
                         "odoo_item_id": product.id
                     })
         if producteca_queue:
-            self.env['producteca.queue'].create(producteca_queue)
+            self.env['producteca.queue'].sudo().create(producteca_queue)
         return _
         
