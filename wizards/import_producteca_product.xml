@@ -6,7 +6,8 @@
         <field name="arch" type="xml">
             <form string="Obtener Productos de Producteca">
                 <group>
-                    <field name="producteca_account_ids" widget="many2many_tags"/>
+                    <field name="producteca_account_id"/>
+                    <field name="update_if_exists"/>
                     <field name="search_text"/>
                 </group>
                 <footer>
@@ -25,7 +26,7 @@
     </record>
 
     <menuitem
-        id="menu_producteca_products"
+        id="menu_obtain_producteca_products"
         name="Obtener Productos de Producteca"
         parent="menu_producteca_root"
         action="action_producteca_products_wizard"

@@ -15,7 +15,7 @@
     'category': 'Uncategorized',
     'version': '1.0',
 
-    'depends': ['base','stock','sale','sale_management','contacts','product_brand'],
+    'depends': ['base','stock','sale','sale_management','contacts','product_brand','website_sale', 'brand'],
 
     'data': [
         'data/producteca_menu.xml', 

@@ -59,7 +59,7 @@ class Integration(BaseModel):
 
 class Variation(BaseModel):
     variation_id: Optional[int] = Field(default=None, alias='variationId')
-    components: Optional[List] = None  # No se incluyó `Component` ya que no figura en el POST
+    components: Optional[List] = None
     pictures: Optional[List[Picture]] = None
     stocks: Optional[List[Stock]] = None
     attributes_hash: Optional[str] = Field(default=None, alias='attributesHash')
@@ -94,8 +94,6 @@ class Product(BaseModel):
     pictures: Optional[List[Picture]] = None
 
 
-# Modelo para sincronización / POST
-
     def create(self):
         endpoint_url = self.config.get_endpoint(f'{self.endpoint}/synchronize')
         headers = self.config.headers.copy()
@@ -123,21 +121,22 @@ class Product(BaseModel):
 
     @classmethod
     def get(cls, config: ConfigProducteca, product_id: int):
-        endpoint_url = config.get_endpoint(f'{cls.endpoint}/{product_id}')
+        endpoint_url = config.get_endpoint(f'{cls().endpoint}/{product_id}')
         headers = config.headers
         response = requests.get(endpoint_url, headers=headers)
-        return cls(config=config, **response.json()), response.status_code
+        response_data = response.json()
+        return response_data, response.status_code
 
     @classmethod
     def get_bundle(cls, config: ConfigProducteca, product_id: int):
-        endpoint_url = config.get_endpoint(f'{cls.endpoint}/{product_id}/bundles')
+        endpoint_url = config.get_endpoint(f'{cls().endpoint}/{product_id}/bundles')
         headers = config.headers
         response = requests.get(endpoint_url, headers=headers)
         return cls(config=config, **response.json()), response.status_code
 
     @classmethod
     def get_ml_integration(cls, config: ConfigProducteca, product_id: int):
-        endpoint_url = config.get_endpoint(f'{cls.endpoint}/{product_id}/listintegration')
+        endpoint_url = config.get_endpoint(f'{cls().endpoint}/{product_id}/listintegration')
         headers = config.headers
         response = requests.get(endpoint_url, headers=headers)
         return cls(config=config, **response.json()), response.status_code

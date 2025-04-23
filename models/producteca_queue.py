@@ -48,8 +48,7 @@ class ProductecaQueue(models.Model):
     def _prepare_producteca_product_dict(self, product, account):
         pricelists = self._obtain_pricelist_for_product(product)
         stock_by_warehouse = self._obtain_stocks_for_product(product, account)
-        _logger.info(stock_by_warehouse)
-        image_url = None #TODO
+        image_url = f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{product.id}"
         deals = None #TODO
         product_data = {
             "sku": product.default_code or None,
@@ -105,10 +104,8 @@ class ProductecaQueue(models.Model):
                 **body_dict
             )
             product_response, response_status = product.create()
-            _logger.info(product_response)
             queue_record.producteca_response = product_response
             queue_record.response_status = response_status
-            _logger.info(product_response)
             if response_status in ACCEPTATION_CODES:
                 queue_record.active = False
                 connection_array_dict.append({
@@ -182,12 +179,10 @@ class ProductecaQueue(models.Model):
 
     def process_product_stock_queue(self):
         queue_records = self.search([('producteca_method', '=', 'update'), ('active', '=', True), ('model', '=', 'stock.quant')])
-        _logger.info(queue_records)
         if not queue_records:
             return False
         product_ids_in_queue = [record.odoo_item_id for record in queue_records]
         producteca_connections = self.env['producteca.connections'].sudo().search([('product_id', 'in', product_ids_in_queue)])
-        _logger.info(producteca_connections)
         queue_info = {record.odoo_item_id: record for record in queue_records}
         if not producteca_connections:
             return False
@@ -199,7 +194,6 @@ class ProductecaQueue(models.Model):
                 token=connection.producteca_account_id.bearer_token,
                 api_key=connection.producteca_account_id.api_key
             )
-            _logger.info(queue_record)
             body_dict = eval(queue_record.producteca_body)
             body_dict.update({
                 "variation_id": int(connection.producteca_variation_id)
@@ -217,29 +211,120 @@ class ProductecaQueue(models.Model):
 
     ### Obtain products from producteca ###
 
-    def create_obtain_from_producteca_queue(self, search_text, producteca_account_id):
-        parsed_products = search_text.split(",")
+    def create_obtain_from_producteca_queue(self, products_to_create, producteca_account_id):
         queue_to_create = []
-        for product in parsed_products:
+        for product in products_to_create:
             queue_to_create.append({
                 "producteca_account_id": producteca_account_id.id,
                 "producteca_method": "get",
                 "model": "product.product",
-                "producteca_body": int(product)
+                "producteca_body": product
             })
-        self.create(queue_to_create)
+        return self.create(queue_to_create)
+
+    def filter_empty_values(self, d):
+        return {k: v for k, v in d.items() if v is not None and v != ''}
+
+    def _handle_producteca_attribute_dict(self, producteca_response, odoo_product):
+        existing_lines = odoo_product.attribute_line_ids
+        
+        existing_lines_dict = {line.attribute_id.name: line for line in existing_lines}
+        
+        attribute_line_ops = []
+        
+        for attr in producteca_response['attributes']:
+            attribute_id = self.env['product.attribute'].sudo().search([('name', '=', attr['key'])], limit=1)
+            
+            if attribute_id:
+                if attribute_id.name in existing_lines_dict:
+                    existing_line = existing_lines_dict[attribute_id.name]
+                    
+                    existing_value = existing_line.value_ids.filtered(lambda v: v.name == attr['value'])
+                    
+                    if not existing_value:
+                        attribute_line_ops.append((1, existing_line.id, {
+                            'value_ids': [(0, 0, {'name': attr['value']})]
+                        }))
+                    else:
+                        continue
+                else:
+                    attribute_line_ops.append((0, 0, {
+                        'attribute_id': attribute_id.id,
+                        'value_ids': [(0, 0, {'name': attr['value']})]
+                    }))
+        
+        if attribute_line_ops:
+            return [(5, 0, 0)] + attribute_line_ops
+        return []
+
+    def _handle_producteca_tags_dict(self, producteca_response):
+        tag_model = self.env['product.tag']
+        tag_names = producteca_response['tags']
+        existing_tags = tag_model.search([('name', 'in', tag_names)])
+        new_tags = tag_model.create([
+                {'name': name}
+                for name in tag_names
+                if name not in existing_tags.mapped('name')
+            ])
+        all_tags = existing_tags + new_tags
+        return [(6, 0, all_tags.ids)] 
+
+    def _prepare_odoo_product_dict(self, producteca_response, odoo_product):
+        producteca_response = self.filter_empty_values(producteca_response)
+        vals = {
+            'name': producteca_response.get('name'),
+            'default_code': producteca_response.get('sku'),
+            'barcode': producteca_response.get('barcode'),
+            'list_price': producteca_response.get('buyingPrice'),
+            'product_brand_id': producteca_response.get('brand'),
+            'description': producteca_response.get('notes'),
+            'is_producteca_product': True,
+        }
+        
+        if producteca_response.get('tags'):
+            vals['product_tag_ids'] = self._handle_producteca_tags_dict(producteca_response)
+        
+        if producteca_response.get('attributes') and odoo_product:
+            vals['attribute_line_ids'] = self._handle_producteca_attribute_dict(producteca_response, odoo_product)
+        
+        dimensions = producteca_response.get('dimensions', {})
+        if dimensions:
+            vals.update({
+                'weight': dimensions.get('weight'),
+                # 'width': dimensions.get('width'), #TODO with packages
+                # 'height': dimensions.get('height'),
+                # 'depth': dimensions.get('length')
+            })
+        
+        return vals
 
     def obtain_producteca_products_process_queue(self):
         queue_records = self.search([('producteca_method', '=', 'get'), ('active', '=', True), ('model', '=', 'product.product')])
         if not queue_records:
             return False
+        producteca_ids = [int(record.producteca_body) for record in queue_records]
+        connections = self.env['producteca.connections'].sudo().search([('producteca_id', 'in', producteca_ids)])
+        products_to_create = []
         for queue_record in queue_records:
             config = ConfigProducteca(
                 token=queue_record.producteca_account_id.bearer_token,
                 api_key=queue_record.producteca_account_id.api_key
             )
-            product_response, response_status = Product.get(config=config, product_id = queue_record.producteca_body)
+            product = Product(  
+                config=config,
+                create_if_it_doesnt_exist=queue_record.producteca_account_id.create_if_dosnt_exist
+            )
+            product_response, response_status = product.get(config=config, product_id = queue_record.producteca_body)
             queue_record.producteca_response = product_response
             queue_record.response_status = response_status
             if response_status in ACCEPTATION_CODES:
                 queue_record.active = False
+                product_connection = connections.filtered(lambda x: x.producteca_id == queue_record.producteca_body) if connections else False
+                if product_connection:
+                    odoo_product = product_connection.product_id
+                    product_dict = self._prepare_odoo_product_dict(product_response, odoo_product)
+                    odoo_product.sudo().write(product_dict)
+                else:
+                    products_to_create.append(self._prepare_odoo_product_dict(product_response, False))
+        if products_to_create:
+            self.env['product.product'].sudo().create(products_to_create)

@@ -11,7 +11,6 @@ class ProductTemplate(models.Model):
 
 
     def write(self, vals):
-        _logger.info('write vals %s',vals)
         _ = super().write(vals)
         producteca_queue = []
         for rec in self:
