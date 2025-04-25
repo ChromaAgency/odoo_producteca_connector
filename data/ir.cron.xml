@@ -45,4 +45,32 @@
         <field name="interval_type">hours</field>
         <field name="active" eval="True"/>
     </record>
+
+    <record id="ir_cron_enqueue_last_7_days_orders_from_producteca" model="ir.cron">
+        <field name="name">Enqueue Last 7 Days Orders From Producteca</field>
+        <field name="model_id" ref="model_producteca_queue"/>
+        <field name="state">code</field>
+        <field name="code">model.enqueue_last_7_days_orders_from_producteca()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="ir_cron_process_producteca_orders_queue" model="ir.cron">
+        <field name="name">Process Producteca Orders Queue</field>
+        <field name="model_id" ref="model_producteca_queue"/>
+        <field name="state">code</field>
+        <field name="code">model.process_producteca_order_queue()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="ir_cron_process_queue_product_create_in_odoo" model="ir.cron">
+        <field name="name">Process Producteca Product Create Queue In Odoo</field>
+        <field name="model_id" ref="model_producteca_queue"/>
+        <field name="state">code</field>
+        <field name="code">model.process_queue_product_create_in_odoo()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active" eval="True"/>
+    </record>
 </odoo>

@@ -1,8 +1,12 @@
 from odoo import models, fields, api
 from ..utils.products.products import Product
-from ..utils.products import products
 from ..utils.config.config import ConfigProducteca
+from ..utils.search.search_sale_orders import SearchSalesOrder, SearchSalesOrderParams
+from ..utils.sales_orders.sales_orders import SaleOrder
 import logging
+from datetime import datetime, timedelta
+import urllib.parse
+from odoo.tools.safe_eval import safe_eval
 ACCEPTATION_CODES = [200, 201, 202, 205, 206, 207]
 _logger = logging.getLogger(__name__)
 
@@ -16,14 +20,16 @@ class ProductecaQueue(models.Model):
     )
     producteca_body = fields.Text(string="Producteca Body")
     producteca_method = fields.Selection(
-        [("create", "Create"),("update", "Update"), ("get", "Get"), ("post", "Post"), ("put", "Put"), ("delete", "Delete")],
+        [("create", "Create"),("update", "Update"), ("get", "Get"), ("post", "Post"), ("put", "Put"), ("delete", "Delete"), ("odoo_create", "Odoo Create")],
         string="Producteca Method",
     )
     model = fields.Char(string="Model")
     producteca_response = fields.Text(string="Producteca Response")
     odoo_item_id = fields.Integer(string="Odoo Item ID", readonly=True)
     response_status = fields.Char(string="Producteca Response Status")
+    internal_process_error_msg = fields.Text(string="Internal Process Error Message")
 
+    ##### Products #####
 
     #### Obtain Product Dict ####
 
@@ -97,7 +103,7 @@ class ProductecaQueue(models.Model):
                 token=queue_record.producteca_account_id.bearer_token,
                 api_key=queue_record.producteca_account_id.api_key
             )
-            body_dict = eval(queue_record.producteca_body)
+            body_dict = safe_eval(queue_record.producteca_body)
             product = Product(
                 config=config,
                 create_if_it_doesnt_exist=queue_record.producteca_account_id.create_if_dosnt_exist,
@@ -194,7 +200,7 @@ class ProductecaQueue(models.Model):
                 token=connection.producteca_account_id.bearer_token,
                 api_key=connection.producteca_account_id.api_key
             )
-            body_dict = eval(queue_record.producteca_body)
+            body_dict = safe_eval(queue_record.producteca_body)
             body_dict.update({
                 "variation_id": int(connection.producteca_variation_id)
             })
@@ -226,7 +232,7 @@ class ProductecaQueue(models.Model):
         return {k: v for k, v in d.items() if v is not None and v != ''}
 
     def _handle_producteca_attribute_dict(self, producteca_response, odoo_product):
-        existing_lines = odoo_product.attribute_line_ids
+        existing_lines = odoo_product.attribute_line_ids if odoo_product else []
         
         existing_lines_dict = {line.attribute_id.name: line for line in existing_lines}
         
@@ -283,7 +289,9 @@ class ProductecaQueue(models.Model):
         
         if producteca_response.get('tags'):
             vals['product_tag_ids'] = self._handle_producteca_tags_dict(producteca_response)
-        
+        if producteca_response.get('attributes') and not odoo_product:
+            vals['attribute_line_ids'] = self._handle_producteca_attribute_dict(producteca_response, False)
+
         if producteca_response.get('attributes') and odoo_product:
             vals['attribute_line_ids'] = self._handle_producteca_attribute_dict(producteca_response, odoo_product)
         
@@ -328,3 +336,194 @@ class ProductecaQueue(models.Model):
                     products_to_create.append(self._prepare_odoo_product_dict(product_response, False))
         if products_to_create:
             self.env['product.product'].sudo().create(products_to_create)
+
+
+    ##### Sale orders #####
+
+    ### Create Sale orders Queue ###
+
+    def enqueue_last_7_days_orders_from_producteca(self):
+        producteca_accounts = self.env['producteca.account'].sudo().search([('active', '=', True)])
+        queue_records_create = []
+        
+        for account in producteca_accounts:
+            config = ConfigProducteca(
+                token=account.bearer_token,
+                api_key=account.api_key
+            )
+            today = datetime.now()
+            seven_days_ago = today - timedelta(days=7)
+            
+            filter_str = (
+                f"paymentStatus eq 'Approved' and "
+                f"date gt {seven_days_ago.isoformat()}"
+            )
+            
+            params = SearchSalesOrderParams(
+                top=100,
+                skip=0,
+                filter=filter_str
+            )
+            
+            saleorder_response, response_status = SearchSalesOrder.search_saleorder(config=config, params=params)
+            _logger.info(saleorder_response)
+            _logger.info(response_status)
+            if response_status in ACCEPTATION_CODES:
+                for saleorder in saleorder_response.get('results', []):
+                    queue_records_create.append({
+                        'producteca_method': 'get',
+                        'producteca_body': saleorder,
+                        'producteca_account_id': account.id,
+                        'model': 'sale.order'
+                })
+        _logger.info(queue_records_create)
+        if queue_records_create:
+            return self.create(queue_records_create)
+        return False
+
+    ### Process Sale orders Queue ###
+
+    def process_producteca_order_queue(self):
+        queue_records = self.search([
+            ('producteca_method', '=', 'get'),
+            ('active', '=', True),
+            ('model', '=', 'sale.order'),
+        ])
+        _logger.info(queue_records)
+        if not queue_records:
+            return False
+
+        seven_days_ago = (datetime.now() - timedelta(days=7)).date()
+        sale_orders = self.env['sale.order'].sudo().search([('create_date', '>=', seven_days_ago)])
+        existing_sale_orders = [sale_order.producteca_id for sale_order in sale_orders]
+        connections = self.env['producteca.connections'].sudo().search([])
+        quotation_status_sale_orders = []
+        draft_invoice_status_sale_orders = []
+        confirm_status_sale_orders = []
+        carts = self.env['sale.order.cart'].sudo().search([])
+
+        for queue_record in queue_records:
+            body = safe_eval(queue_record.producteca_body)
+            _logger.info('body %s', body)
+            order_id = body.get('id')
+            _logger.info('order_id %s', order_id)
+            if not order_id or (order_id in existing_sale_orders):
+                continue
+            account = queue_record.producteca_account_id
+            lines = body.get('lines', [])
+            _logger.info('lines %s', lines)
+
+            sale_order_lines = []
+            missing_products = {}
+
+            for line in lines:
+                product_id = line.get('product', {}).get('id')
+                _logger.info('product_id %s', product_id)                
+                variation_id = line.get('variation', {}).get('id')
+                _logger.info('variation_id %s', variation_id)
+                connection = connections.filtered(lambda x: (x.producteca_id == str(product_id) or x.producteca_variation_id == str(variation_id)) and x.producteca_account_id == account)
+                _logger.info('connection %s', connection)
+
+                if not connection:
+                    _logger.info('connection not found')
+                    missing_products.update({product_id: line})
+                    continue
+
+                product = connection.product_id
+                _logger.info('product %s', product)
+                sale_order_lines.append((0, 0, {
+                    'product_id': product.id,
+                    'product_uom_qty': line.get('quantity', 0),
+                    'price_unit': line.get('price', 0),
+                    'name': product.display_name,
+                }))
+            _logger.info('missing_product_ids %s', missing_products)
+            _logger.info('sale_order_lines %s', sale_order_lines)
+
+            if missing_products:
+                self._create_producteca_queue_for_missing_products(queue_record, account, missing_products)
+                continue
+
+            sale_order_dict = {
+                'partner_id': account.company_id.partner_id.id,  # Placeholder
+                'order_line': sale_order_lines,
+                'producteca_id': order_id,
+                'company_id': account.company_id.id,
+                'cart_id': carts.filtered(lambda x: x.producteca_id == body.get('cartId')).id,
+                'warehouse_id': account.warehouse_ids.filtered(lambda x: x.name == body.get('warehouseId')).id
+            }
+            _logger.info(sale_order_dict)
+            if account.imported_sale_action == 'quotation' and sale_order_dict:
+                quotation_status_sale_orders.append(sale_order_dict)
+            elif account.imported_sale_action == 'draft_invoice' and sale_order_dict:
+                draft_invoice_status_sale_orders.append(sale_order_dict)
+            elif account.imported_sale_action == 'confirm' and sale_order_dict:
+                confirm_status_sale_orders.append(sale_order_dict)
+            queue_record.active = False
+
+        if quotation_status_sale_orders:
+            _logger.info(quotation_status_sale_orders)
+            created_sale_orders = self.env['sale.order'].sudo().create(quotation_status_sale_orders)
+            created_sale_orders.action_confirm()
+        if draft_invoice_status_sale_orders:
+            _logger.info(draft_invoice_status_sale_orders)
+            created_sale_orders = self.env['sale.order'].sudo().create(draft_invoice_status_sale_orders)
+            created_sale_orders.action_confirm()
+            created_sale_orders._create_invoices()
+        if confirm_status_sale_orders:
+            _logger.info(confirm_status_sale_orders)
+            created_sale_orders = self.env['sale.order'].sudo().create(confirm_status_sale_orders)
+            created_sale_orders.action_confirm()
+            moves = created_sale_orders._create_invoices()
+            for move in moves:
+                move.action_post()
+
+    ### Create Queue products in odoo ###
+
+    def _create_producteca_queue_for_missing_products(self, queue_record, account, missing_products):
+        if account.is_producteca_able_to_create_products:
+            for line in missing_products.values():
+                producteca_body_queue = line.get('variation') | line.get('product')
+                producteca_body_queue.update({
+                    "variation_id": int(line.get('variation', {}).get('id'))
+                })
+                self.create({
+                    'producteca_account_id': account.id,                    
+                    'producteca_body': producteca_body_queue,
+                    'model': 'product.product',
+                    'producteca_method': 'odoo_create'
+                })
+            queue_record.internal_process_error_msg = (
+                f"No se completo la orden porque los productos {', '.join(map(str, missing_products.keys()))} no existen en Odoo. Pero se han puesto en cola para ser creados y se reprocesará"
+            )
+        else:
+            queue_record.internal_process_error_msg = (
+                "No se pudo crear la orden porque la cuenta no permite creación de productos y el/los producto(s) "
+                f"{', '.join(map(str, missing_products.keys()))} no existen en Odoo."
+            )
+
+    def process_queue_product_create_in_odoo(self):
+        queue_records = self.search([
+            ('producteca_method', '=', 'odoo_create'),
+            ('active', '=', True),
+            ('model', '=', 'product.product')
+        ])
+        if not queue_records:
+            return False
+        products_to_create = []
+        connection_dict_of_dicts = {} ##TODO Tengo un problema aca, deberia crear la conexion pero no tengo el product_id a menos que haga el create de 1 por 1 pero despues de crearlo no tengo el producteca id
+        connection_array_dict = []
+        for queue_record in queue_records:
+            producteca_body = safe_eval(queue_record.producteca_body)
+            products_to_create.append(self._prepare_odoo_product_dict(producteca_body, False))
+            connection_dict_of_dicts[producteca_body.get('id')] = {
+                "producteca_account_id": queue_record.producteca_account_id.id,
+                "producteca_id": producteca_body.get('id'),
+                "producteca_variation_id": producteca_body.get('variation_id')
+            }
+            queue_record.active = False
+        if products_to_create:
+            self.env['product.product'].sudo().create(products_to_create)
+            self.env['producteca.connections'].sudo().create(connection_array_dict)
+        return True
+        
