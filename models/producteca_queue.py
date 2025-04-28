@@ -5,6 +5,7 @@ from ..utils.search.search_sale_orders import SearchSalesOrder, SearchSalesOrder
 from ..utils.sales_orders.sales_orders import SaleOrder
 import logging
 from datetime import datetime, timedelta
+from odoo.addons.base.models.res_users import Command
 import urllib.parse
 from odoo.tools.safe_eval import safe_eval
 ACCEPTATION_CODES = [200, 201, 202, 205, 206, 207]
@@ -294,6 +295,13 @@ class ProductecaQueue(models.Model):
 
         if producteca_response.get('attributes') and odoo_product:
             vals['attribute_line_ids'] = self._handle_producteca_attribute_dict(producteca_response, odoo_product)
+
+        if producteca_response.get('account_id'):
+            vals['producteca_connection_ids'] = [Command.create({
+                "producteca_account_id": producteca_response.get('account_id'),
+                "producteca_id": producteca_response.get('id'),
+                "producteca_variation_id": producteca_response.get('variation_id')
+            })]
         
         dimensions = producteca_response.get('dimensions', {})
         if dimensions:
@@ -366,8 +374,6 @@ class ProductecaQueue(models.Model):
             )
             
             saleorder_response, response_status = SearchSalesOrder.search_saleorder(config=config, params=params)
-            _logger.info(saleorder_response)
-            _logger.info(response_status)
             if response_status in ACCEPTATION_CODES:
                 for saleorder in saleorder_response.get('results', []):
                     queue_records_create.append({
@@ -376,20 +382,98 @@ class ProductecaQueue(models.Model):
                         'producteca_account_id': account.id,
                         'model': 'sale.order'
                 })
-        _logger.info(queue_records_create)
         if queue_records_create:
             return self.create(queue_records_create)
         return False
 
     ### Process Sale orders Queue ###
 
+    def _mapped_origin_application(self, sale_channel_id):
+        app_mapping = {
+            'Agrupate': [401],
+            'Amazon': [90],
+            'AMEX / Foodies Store': [338],
+            'Banco Ciudad': [294],
+            'Banco Galicia': [276],
+            'Banco Macro': [490],
+            'Banco Patagonia': [341],
+            'Banco Provincia': [382],
+            'Bancolombia': [329],
+            'Bancor': [396],
+            'BBVA': [140],
+            'BNA': [259, 268, 291, 298],
+            'Buybuy': [400],
+            'Carrefour': [381],
+            'Cetrogar': [332],
+            'Claroshop': [208],
+            'Coppel': [246],
+            'Cornershop': [261],
+            'Cyberpuerta': [325],
+            'Dafiti Chile': [502],  
+            'Dafiti Colombia': [286],
+            'Diners': [344],
+            'Directv': [395],
+            'Doto': [392],
+            'Elektra': [103],
+            'Falabella': [330],
+            'Falabella Colombia': [383],
+            'Falabella Peru': [351],
+            'Fenicio': [347],
+            'Fravega': [220],
+            'Garbarino': [405],
+            'Global Reward Solutions': [411],
+            'ICBC': [59],
+            'Jumbo Colombia': [447],
+            'Juntoz': [394],
+            'Kodear': [504],
+            'La Marina': [402],
+            'Linio Colombia': [279],
+            'Linio México': [77],
+            'Linio Perú': [284],
+            'Liverpool': [262],
+            'Magento': [51],
+            'Me Gusta': [288],
+            'Megatone': [269],
+            'Mercado Libre': [2, 272],
+            'Necxus': [335],
+            'Paris': [250],
+            'Paseo Libertad': [293],
+            'Prestashop': [391],
+            'Quickfit': [375],
+            'Rappi': [389],
+            'Ripley Chile': [237],
+            'Ripley Perú': [297],
+            'Sam\'s-DSV': [273],
+            'Sears': [314],
+            'Shein': [314],  # ¡CONFLICTO! Mismo ID que Sears
+            'Shopify': [60, 253, 263, 299],
+            'Supervielle': [141],
+            'Surtidora Departamental': [452],
+            'Tata': [274],
+            'Tecnofan': [364],
+            'Tienda Clic': [69],
+            'Tienda Columbia': [296],
+            'Tienda Indigo': [789],
+            'Tienda Itaú': [275],
+            'Tienda Nube': [345],
+            'Uber': [397],
+            'Vtex': [33, 398],
+            'Walmart': [209, 320, 321],
+            'Walmart-DSV': [233],
+            'Woocommerce': [393, 439, 442, 4457],
+        }
+        reverse_mapping = {}
+        for app_name, app_ids in app_mapping.items():
+            for app_id in app_ids:
+                reverse_mapping[app_id] = app_name
+        return reverse_mapping.get(sale_channel_id, 'Unknown')
+        
     def process_producteca_order_queue(self):
         queue_records = self.search([
             ('producteca_method', '=', 'get'),
             ('active', '=', True),
             ('model', '=', 'sale.order'),
         ])
-        _logger.info(queue_records)
         if not queue_records:
             return False
 
@@ -404,55 +488,60 @@ class ProductecaQueue(models.Model):
 
         for queue_record in queue_records:
             body = safe_eval(queue_record.producteca_body)
-            _logger.info('body %s', body)
             order_id = body.get('id')
-            _logger.info('order_id %s', order_id)
             if not order_id or (order_id in existing_sale_orders):
                 continue
             account = queue_record.producteca_account_id
             lines = body.get('lines', [])
-            _logger.info('lines %s', lines)
 
             sale_order_lines = []
             missing_products = {}
+            warehouse_name = body.get('warehouse')
+            if warehouse_name == 'Default':
+                warehouse = account.default_warehouse_id.id
+            else:
+                warehouse = account.warehouse_ids.filtered(lambda x: x.name == warehouse_name).id
 
             for line in lines:
                 product_id = line.get('product', {}).get('id')
-                _logger.info('product_id %s', product_id)                
                 variation_id = line.get('variation', {}).get('id')
-                _logger.info('variation_id %s', variation_id)
                 connection = connections.filtered(lambda x: (x.producteca_id == str(product_id) or x.producteca_variation_id == str(variation_id)) and x.producteca_account_id == account)
-                _logger.info('connection %s', connection)
 
                 if not connection:
-                    _logger.info('connection not found')
                     missing_products.update({product_id: line})
                     continue
 
                 product = connection.product_id
-                _logger.info('product %s', product)
-                sale_order_lines.append((0, 0, {
+                sale_order_lines.append(Command.create({
                     'product_id': product.id,
                     'product_uom_qty': line.get('quantity', 0),
                     'price_unit': line.get('price', 0),
                     'name': product.display_name,
+                    'warehouse_id': warehouse,
                 }))
-            _logger.info('missing_product_ids %s', missing_products)
-            _logger.info('sale_order_lines %s', sale_order_lines)
-
+            origin_platform = self._mapped_origin_application(body.get('salesChannel'))
             if missing_products:
                 self._create_producteca_queue_for_missing_products(queue_record, account, missing_products)
                 continue
-
+            partner_id = self.env['res.partner'].sudo().search([('producteca_id', '=', body.get('contactId')), ('parent_id', '!=', False)], limit=1)
+            if not partner_id:
+                partner_id = self._create_producteca_partner(body.get('contactId'), queue_record.producteca_account_id)
+            cart_id = None
+            if body.get('cartId') != None: #Check if this is none on true data
+                cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId')).id
+                if not cart_id:
+                    cart_id = self.env['sale.order.cart'].sudo().create({
+                        'producteca_id': body.get('cartId'),
+                    }).id
             sale_order_dict = {
-                'partner_id': account.company_id.partner_id.id,  # Placeholder
+                'partner_id': partner_id.id,
                 'order_line': sale_order_lines,
+                'origin_platform': origin_platform,
                 'producteca_id': order_id,
                 'company_id': account.company_id.id,
-                'cart_id': carts.filtered(lambda x: x.producteca_id == body.get('cartId')).id,
-                'warehouse_id': account.warehouse_ids.filtered(lambda x: x.name == body.get('warehouseId')).id
+                'cart_id': cart_id,
+                'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id
             }
-            _logger.info(sale_order_dict)
             if account.imported_sale_action == 'quotation' and sale_order_dict:
                 quotation_status_sale_orders.append(sale_order_dict)
             elif account.imported_sale_action == 'draft_invoice' and sale_order_dict:
@@ -462,21 +551,53 @@ class ProductecaQueue(models.Model):
             queue_record.active = False
 
         if quotation_status_sale_orders:
-            _logger.info(quotation_status_sale_orders)
             created_sale_orders = self.env['sale.order'].sudo().create(quotation_status_sale_orders)
             created_sale_orders.action_confirm()
         if draft_invoice_status_sale_orders:
-            _logger.info(draft_invoice_status_sale_orders)
             created_sale_orders = self.env['sale.order'].sudo().create(draft_invoice_status_sale_orders)
             created_sale_orders.action_confirm()
             created_sale_orders._create_invoices()
         if confirm_status_sale_orders:
-            _logger.info(confirm_status_sale_orders)
             created_sale_orders = self.env['sale.order'].sudo().create(confirm_status_sale_orders)
             created_sale_orders.action_confirm()
             moves = created_sale_orders._create_invoices()
             for move in moves:
                 move.action_post()
+        
+
+    def _create_producteca_partner(self, producteca_id, account):
+        config = ConfigProducteca(
+                token=account.bearer_token,
+                api_key=account.api_key
+            )
+        sale_order = SaleOrder.get(config, producteca_id)
+        contact = sale_order.contact
+        company = self.env['res.partner'].sudo().search([('vat', '=', contact.billingInfo.docNumber), ('parent_id', '=', False)], limit=1)
+        if not company:
+            identification = self.env['l10n_latam.identification.type'].sudo().search([('name', '=', contact.billingInfo.docType)], limit=1)
+            responsibility = self.env['l10n_ar.afip.responsibility.type'].sudo().search([('name', 'ilike', contact.billingInfo.taxPayerType)], limit=1)
+            state = self.env['res.country.state'].sudo().search([('name', '=', contact.billingInfo.state)], limit=1)
+            company_info = {
+                'name': contact.billingInfo.businessName,
+                'l10n_latam_identification_type_id': identification.id,
+                'l10n_ar_afip_responsibility_type_id': responsibility.id,
+                'vat': contact.billingInfo.docNumber,
+                'street': f'{contact.billingInfo.streetName} {contact.billingInfo.streetNumber}',
+                'zip': contact.billingInfo.zipCode,
+                'city': contact.billingInfo.city,
+                'state_id': state.id,
+                'country_id': self.env.ref('base.ar').id
+            }
+            company = self.env['res.partner'].sudo().create(company_info)
+        contact_info = {
+            'name': contact.name,
+            'producteca_id': producteca_id,
+            'email': contact.mail,
+            'phone': contact.phoneNumber,
+            'parent_id': company.id
+        }
+        partner = self.env['res.partner'].sudo().create(contact_info)
+        return partner
 
     ### Create Queue products in odoo ###
 
@@ -511,19 +632,14 @@ class ProductecaQueue(models.Model):
         if not queue_records:
             return False
         products_to_create = []
-        connection_dict_of_dicts = {} ##TODO Tengo un problema aca, deberia crear la conexion pero no tengo el product_id a menos que haga el create de 1 por 1 pero despues de crearlo no tengo el producteca id
-        connection_array_dict = []
         for queue_record in queue_records:
             producteca_body = safe_eval(queue_record.producteca_body)
+            producteca_body.update({
+                "account_id": queue_record.producteca_account_id.id
+            })
             products_to_create.append(self._prepare_odoo_product_dict(producteca_body, False))
-            connection_dict_of_dicts[producteca_body.get('id')] = {
-                "producteca_account_id": queue_record.producteca_account_id.id,
-                "producteca_id": producteca_body.get('id'),
-                "producteca_variation_id": producteca_body.get('variation_id')
-            }
             queue_record.active = False
         if products_to_create:
             self.env['product.product'].sudo().create(products_to_create)
-            self.env['producteca.connections'].sudo().create(connection_array_dict)
         return True
         

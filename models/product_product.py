@@ -8,6 +8,7 @@ class ProductProduct(models.Model):
 
     is_producteca_product = fields.Boolean(string="Is Producteca Product", related='product_tmpl_id.is_producteca_product', store=True)
     is_already_sync = fields.Boolean(string="Is Already Sync", readonly=True, copy=False)
+    producteca_connection_ids = fields.One2many('producteca.connections', 'product_id', string="Producteca Connection")
 
 
     def write(self, vals):

@@ -30,6 +30,7 @@
                             <group>
                                 <field name="company_id"/>
                                 <field name="imported_sale_action"/>
+                                <field name="default_warehouse_id"/>
                                 <field name="warehouse_ids" widget="many2many_tags"/>
                                 <field name="pricelist_to_sync"/>
                             </group>

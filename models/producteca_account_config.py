@@ -8,16 +8,17 @@ class ProductecaAccountConfig(models.Model):
 
     active= fields.Boolean(string='Active', default=True)
     account_name = fields.Char(string='Account Name', required=True)
-    api_key = fields.Char(string='API Key')
-    bearer_token = fields.Char(string='Bearer Token')
+    api_key = fields.Char(string='API Key', required=True)
+    bearer_token = fields.Char(string='Bearer Token', required=True)
 
     company_id = fields.Many2one('res.company', string='Company')
     imported_sale_action = fields.Selection([
         ("quotation", "Create the sale order confirmed"),
         ("draft_invoice", "Confirm the sale order and create draft invoice"),
         ("confirm", "Confirm the sale order and create confirmed invoice"),
-    ], string="Imported Sale Action")
+    ], string="Imported Sale Action", required=True)
     warehouse_ids = fields.Many2many('stock.warehouse', string='Warehouse Location')
+    default_warehouse_id = fields.Many2one('stock.warehouse', string='Default Warehouse', required=True)
 
     pricelist_to_sync = fields.Many2one('product.pricelist', string='Pricelist to Sync in Producteca')
     is_stock_modified_by_producteca = fields.Boolean(string='Is Stock Modified by Producteca?')

@@ -5,6 +5,7 @@ class SaleOrder(models.Model):
     
     producteca_id = fields.Char(string="Producteca ID")
     cart_id = fields.Many2one("sale.order.cart", string="Cart")
+    origin_platform = fields.Char(string="Origin Platform")
 
 
 class SaleOrderCart(models.Model):
@@ -13,5 +14,5 @@ class SaleOrderCart(models.Model):
     _rec_name = "producteca_id"
 
     producteca_id = fields.Char(string="Producteca ID")
-    order_ids = fields.Many2many("sale.order", string="Orders")
+    order_ids = fields.One2many("sale.order", "cart_id", string="Orders")
     
