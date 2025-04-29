@@ -123,7 +123,6 @@ class ProductecaQueue(models.Model):
                 })
         self.env['producteca.connections'].create(connection_array_dict)
 
-
     def create_product_in_producteca_queue(self):
         producteca_account_ids = self.env['producteca.account'].sudo().search([('active', '=', True),('company_id', '=', self.env.company.id)])
         if not producteca_account_ids:
@@ -468,6 +467,23 @@ class ProductecaQueue(models.Model):
                 reverse_mapping[app_id] = app_name
         return reverse_mapping.get(sale_channel_id, 'Unknown')
         
+    def _compute_delivery_price(self, body):
+        delivery_price = body.get('shippingCost', 0)
+        if delivery_price > 0:
+            delivery_product = self.env['product.product'].sudo().search([('default_code', 'ilike', 'delivery')])
+            if delivery_product:
+                product_tax = delivery_product.taxes_id
+                if product_tax:
+                    tax_id = product_tax[0]
+                    delivery_price = delivery_price / (1 + (tax_id.amount/100))
+                return Command.create({
+                    'product_id': delivery_product.id,
+                    'product_uom_qty': 1,
+                    'price_unit': delivery_price,
+                    'name': delivery_product.display_name,
+                })
+        return False
+    
     def process_producteca_order_queue(self):
         queue_records = self.search([
             ('producteca_method', '=', 'get'),
@@ -489,7 +505,13 @@ class ProductecaQueue(models.Model):
         for queue_record in queue_records:
             body = safe_eval(queue_record.producteca_body)
             order_id = body.get('id')
-            if not order_id or (order_id in existing_sale_orders):
+            if not order_id:
+                queue_record.internal_process_error_msg = "No se encontro el id de la orden"
+                queue_record.active = False
+                continue
+            if order_id in existing_sale_orders:
+                queue_record.internal_process_error_msg = "La orden ya existe"
+                queue_record.active = False
                 continue
             account = queue_record.producteca_account_id
             lines = body.get('lines', [])
@@ -512,13 +534,20 @@ class ProductecaQueue(models.Model):
                     continue
 
                 product = connection.product_id
+                product_tax = product.taxes_id
+                unit_price = line.get('price', 0)
+                tax_id = None
+                if product_tax:
+                    tax_id = product_tax[0]
+                    unit_price = line.get('price', 0) / (1 + (tax_id.amount/100))
                 sale_order_lines.append(Command.create({
                     'product_id': product.id,
                     'product_uom_qty': line.get('quantity', 0),
-                    'price_unit': line.get('price', 0),
+                    'price_unit': unit_price,
                     'name': product.display_name,
                     'warehouse_id': warehouse,
                 }))
+            sale_order_lines.append(self._compute_delivery_price(body))
             origin_platform = self._mapped_origin_application(body.get('salesChannel'))
             if missing_products:
                 self._create_producteca_queue_for_missing_products(queue_record, account, missing_products)
@@ -552,6 +581,7 @@ class ProductecaQueue(models.Model):
 
         if quotation_status_sale_orders:
             created_sale_orders = self.env['sale.order'].sudo().create(quotation_status_sale_orders)
+            created_sale_orders.order_line._compute_tax_id()
             created_sale_orders.action_confirm()
         if draft_invoice_status_sale_orders:
             created_sale_orders = self.env['sale.order'].sudo().create(draft_invoice_status_sale_orders)
@@ -563,7 +593,6 @@ class ProductecaQueue(models.Model):
             moves = created_sale_orders._create_invoices()
             for move in moves:
                 move.action_post()
-        
 
     def _create_producteca_partner(self, producteca_id, account):
         config = ConfigProducteca(
