@@ -7,17 +7,22 @@
     <menuitem id="menu_producteca_products"
               name="Productos"
               parent="menu_producteca_root"
-              sequence="10"/>
+              sequence="11"/>
+
+    <menuitem id="menu_producteca_imports"
+              name="Importaciones"
+              parent="menu_producteca_root"
+              sequence="12"/>
 
     <menuitem id="menu_producteca_products_template"
               name="Productos"
               parent="menu_producteca_products"
               action="product.product_template_action_all"
-              sequence="10"/>
+              sequence="12"/>
 
     <menuitem id="menu_producteca_products_variants"
               name="Variantes de Productos"
               parent="menu_producteca_products"
               action="product.product_normal_action"
-              sequence="20"/>
+              sequence="13"/>
 </odoo>

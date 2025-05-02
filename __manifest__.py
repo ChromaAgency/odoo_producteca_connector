@@ -26,6 +26,7 @@
         'views/product_template.xml',
         'views/stock_warehouse.xml',
         'wizards/import_producteca_product.xml',
+        'wizards/import_producteca_saleorders.xml',
         'views/sale.order.xml',
         'views/sale.order.cart.xml',
         'security/ir.model.access.csv',

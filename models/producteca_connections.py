@@ -7,6 +7,6 @@ class ProductecaConnections(models.Model):
     _description = 'Producteca Connections'
     
     producteca_account_id = fields.Many2one('producteca.account', string='Producteca Account', required=True)
-    product_id = fields.Many2one('product.product', string='Product', required=True)
+    product_id = fields.Many2one('product.product', string='Product')
     producteca_variation_id = fields.Char(string='Producteca Variation ID')
     producteca_id = fields.Char(string='Producteca ID', required=True)

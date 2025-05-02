@@ -496,7 +496,7 @@ class ProductecaQueue(models.Model):
         seven_days_ago = (datetime.now() - timedelta(days=7)).date()
         sale_orders = self.env['sale.order'].sudo().search([('create_date', '>=', seven_days_ago)])
         existing_sale_orders = [sale_order.producteca_id for sale_order in sale_orders]
-        connections = self.env['producteca.connections'].sudo().search([])
+        connections = self.env['producteca.connections'].sudo().search([('product_id', '!=', False)])
         quotation_status_sale_orders = []
         draft_invoice_status_sale_orders = []
         confirm_status_sale_orders = []
@@ -627,6 +627,22 @@ class ProductecaQueue(models.Model):
         }
         partner = self.env['res.partner'].sudo().create(contact_info)
         return partner
+
+    def process_update_producteca_saleorder(self):
+        queue_records = self.search([
+            ('producteca_method', '=', 'update'),
+            ('active', '=', True),
+            ('model', '=', 'sale.order')
+        ])
+        if not queue_records:
+            return False
+        for queue_record in queue_records:
+            producteca_body = safe_eval(queue_record.producteca_body)
+            producteca_body.update({
+                "account_id": queue_record.producteca_account_id.id
+            })
+            self.env['sale.order'].sudo().create(producteca_body) #TODO this should be a write since we are updating
+            queue_record.active = False
 
     ### Create Queue products in odoo ###
 
