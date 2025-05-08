@@ -10,7 +10,7 @@
     """,
 
     'author': "Chroma",
-    'website': "https://www.making.com.ar",
+    'website': "https://portal.chroma.agency/",
 
     'category': 'Uncategorized',
     'version': '1.0',
