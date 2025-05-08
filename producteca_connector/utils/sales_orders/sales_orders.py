@@ -239,8 +239,8 @@ class SaleOrder(BaseModel):
         return response.status_code, response.json()
 
     @classmethod
-    def synchronize(cls, config: ConfigProducteca, payload: "SaleOrder") -> "SaleOrder":
+    def synchronize(cls, config: ConfigProducteca, payload: "SaleOrder") -> tuple[int, "SaleOrder"]:
         endpoint = 'salesorders/synchronize'
         url = config.get_endpoint(endpoint)
         response = requests.post(url, data=payload.model_dump_json(exclude_none=True), headers=config.headers)
-        return cls(**response.json())
+        return response.status_code, cls(**response.json())

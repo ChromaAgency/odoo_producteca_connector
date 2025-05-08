@@ -484,6 +484,70 @@ class ProductecaQueue(models.Model):
                 })
         return False
     
+    def _prepare_sale_order_dict(self, body, account, connections, carts, queue_record, process_type, order_lines=False):
+        lines = body.get('lines', [])
+        sale_order_lines = []
+        missing_products = {}
+        warehouse_name = body.get('warehouse')
+        if warehouse_name == 'Default':
+            warehouse = account.default_warehouse_id.id
+        else:
+            warehouse = account.warehouse_ids.filtered(lambda x: x.name == warehouse_name).id
+
+        for line in lines:
+            product_id = line.get('product', {}).get('id')
+            variation_id = line.get('variation', {}).get('id')
+            connection = connections.filtered(lambda x: (x.producteca_id == str(product_id) or x.producteca_variation_id == str(variation_id)) and x.producteca_account_id == account)
+
+            if not connection:
+                missing_products.update({product_id: line})
+                continue
+
+            product = connection.product_id
+            product_tax = product.taxes_id
+            unit_price = line.get('price', 0)
+            tax_id = None
+            if product_tax:
+                tax_id = product_tax[0]
+                unit_price = line.get('price', 0) / (1 + (tax_id.amount/100))
+            if process_type == 'update' and product.id in order_lines:
+                sale_order_lines.append(Command.update(order_lines[product.id], {
+                    'product_uom_qty': line.get('quantity', 0),
+                    'price_unit': unit_price,
+                }))
+            else:
+                sale_order_lines.append(Command.create({
+                    'product_id': product.id,
+                    'product_uom_qty': line.get('quantity', 0),
+                    'price_unit': unit_price,
+                    'name': product.display_name,
+                    'warehouse_id': warehouse,
+                }))
+        sale_order_lines.append(self._compute_delivery_price(body))
+        origin_platform = self._mapped_origin_application(body.get('salesChannel'))
+        if missing_products:
+            self._create_producteca_queue_for_missing_products(queue_record, account, missing_products)
+            return False
+        partner_id = self.env['res.partner'].sudo().search([('producteca_id', '=', body.get('contactId')), ('parent_id', '!=', False)], limit=1)
+        if not partner_id:
+            partner_id = self._create_producteca_partner(body.get('contactId'), queue_record.producteca_account_id)
+        cart_id = None
+        if body.get('cartId') != None: #Check if this is none on true data
+            cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId')).id
+            if not cart_id:
+                cart_id = self.env['sale.order.cart'].sudo().create({
+                    'producteca_id': body.get('cartId'),
+                }).id
+        return {
+            'partner_id': partner_id.id,
+            'order_line': sale_order_lines,
+            'origin_platform': origin_platform,
+            'producteca_id': body.get('id'),
+            'company_id': account.company_id.id,
+            'cart_id': cart_id,
+            'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id
+        }
+        
     def process_producteca_order_queue(self):
         queue_records = self.search([
             ('producteca_method', '=', 'get'),
@@ -514,63 +578,9 @@ class ProductecaQueue(models.Model):
                 queue_record.active = False
                 continue
             account = queue_record.producteca_account_id
-            lines = body.get('lines', [])
-
-            sale_order_lines = []
-            missing_products = {}
-            warehouse_name = body.get('warehouse')
-            if warehouse_name == 'Default':
-                warehouse = account.default_warehouse_id.id
-            else:
-                warehouse = account.warehouse_ids.filtered(lambda x: x.name == warehouse_name).id
-
-            for line in lines:
-                product_id = line.get('product', {}).get('id')
-                variation_id = line.get('variation', {}).get('id')
-                connection = connections.filtered(lambda x: (x.producteca_id == str(product_id) or x.producteca_variation_id == str(variation_id)) and x.producteca_account_id == account)
-
-                if not connection:
-                    missing_products.update({product_id: line})
-                    continue
-
-                product = connection.product_id
-                product_tax = product.taxes_id
-                unit_price = line.get('price', 0)
-                tax_id = None
-                if product_tax:
-                    tax_id = product_tax[0]
-                    unit_price = line.get('price', 0) / (1 + (tax_id.amount/100))
-                sale_order_lines.append(Command.create({
-                    'product_id': product.id,
-                    'product_uom_qty': line.get('quantity', 0),
-                    'price_unit': unit_price,
-                    'name': product.display_name,
-                    'warehouse_id': warehouse,
-                }))
-            sale_order_lines.append(self._compute_delivery_price(body))
-            origin_platform = self._mapped_origin_application(body.get('salesChannel'))
-            if missing_products:
-                self._create_producteca_queue_for_missing_products(queue_record, account, missing_products)
+            sale_order_dict = self._prepare_sale_order_dict(body, account, connections, carts, queue_record, 'create')
+            if not sale_order_dict:
                 continue
-            partner_id = self.env['res.partner'].sudo().search([('producteca_id', '=', body.get('contactId')), ('parent_id', '!=', False)], limit=1)
-            if not partner_id:
-                partner_id = self._create_producteca_partner(body.get('contactId'), queue_record.producteca_account_id)
-            cart_id = None
-            if body.get('cartId') != None: #Check if this is none on true data
-                cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId')).id
-                if not cart_id:
-                    cart_id = self.env['sale.order.cart'].sudo().create({
-                        'producteca_id': body.get('cartId'),
-                    }).id
-            sale_order_dict = {
-                'partner_id': partner_id.id,
-                'order_line': sale_order_lines,
-                'origin_platform': origin_platform,
-                'producteca_id': order_id,
-                'company_id': account.company_id.id,
-                'cart_id': cart_id,
-                'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id
-            }
             if account.imported_sale_action == 'quotation' and sale_order_dict:
                 quotation_status_sale_orders.append(sale_order_dict)
             elif account.imported_sale_action == 'draft_invoice' and sale_order_dict:
@@ -636,12 +646,14 @@ class ProductecaQueue(models.Model):
         ])
         if not queue_records:
             return False
+        connections = self.env['producteca.connections'].sudo().search([('product_id', '!=', False)])
+        carts = self.env['sale.order.cart'].sudo().search([])
         for queue_record in queue_records:
             producteca_body = safe_eval(queue_record.producteca_body)
-            producteca_body.update({
-                "account_id": queue_record.producteca_account_id.id
-            })
-            self.env['sale.order'].sudo().create(producteca_body) #TODO this should be a write since we are updating
+            sale_order = self.env['sale.order'].sudo().browse(queue_record.odoo_item_id)
+            order_lines = {line.product_id.id: line.id for line in sale_order.order_line}
+            update_dict = self._prepare_sale_order_dict(producteca_body, queue_record.producteca_account_id, connections, carts, queue_record, 'update', order_lines)
+            sale_order.sudo().write(update_dict)
             queue_record.active = False
 
     ### Create Queue products in odoo ###
