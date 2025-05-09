@@ -545,6 +545,8 @@ class ProductecaQueue(models.Model):
             'producteca_id': body.get('id'),
             'company_id': account.company_id.id,
             'cart_id': cart_id,
+            'invoice_integration_producteca_id': body.get('invoiceIntegration', {}).get('integrationId'),
+            'producteca_app_id': body.get('invoiceIntegration', {}).get('app'),
             'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id
         }
         
@@ -699,4 +701,30 @@ class ProductecaQueue(models.Model):
         if products_to_create:
             self.env['product.product'].sudo().create(products_to_create)
         return True
+        
+    ### Account move queue ###
+
+    def process_account_move_queue(self):
+        queue_records = self.search([
+            ('producteca_method', '=', 'update'),
+            ('active', '=', True),
+            ('model', '=', 'account.move')
+        ])
+        if not queue_records:
+            return False
+        connections = self.env['producteca.connections'].sudo().search([('product_id', '=', False), ('producteca_id', 'in', [int(record.odoo_item_id) for record in queue_records])])
+        connection_dict = {connection.producteca_id: connection.producteca_account_id for connection in connections}
+        for queue_record in queue_records:
+            producteca_body = safe_eval(queue_record.producteca_body)
+            account = connection_dict.get(int(producteca_body.get('id')))
+            if account:
+                config = ConfigProducteca(
+                    token=account.bearer_token,
+                    api_key=account.api_key
+                )
+                response, response_status = SaleOrder.invoice_integration(config, int(producteca_body.get('id')), SaleOrder(**producteca_body))
+                if response_status in ACCEPTATION_CODES:
+                    queue_record.active = False
+                else:
+                    queue_record.internal_process_error_msg = response
         

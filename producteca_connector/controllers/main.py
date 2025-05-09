@@ -32,3 +32,12 @@ class ProductecaImageController(Binary):
             )
         except Exception as e:
             return request.not_found()
+
+class ProductecaIInvoiceController(Binary):
+
+    @http.route(['/facturas/<invoice_id>/<invoice_access_token>/factura_producteca.pdf'], cors="*", type="http", auth="public") 
+    def get_invoice_pdf(self, invoice_id, invoice_access_token): 
+        invoice = request.env['account.move'].sudo().search([('id', '=', invoice_id), ('access_token', '=', invoice_access_token)], limit=1) 
+        if not invoice: 
+            return request.not_found()
+        return http.Response(invoice.invoice_pdf_report_file, headers={'Content-Type': 'application/pdf'})

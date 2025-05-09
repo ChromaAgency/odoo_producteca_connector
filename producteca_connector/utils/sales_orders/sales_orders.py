@@ -164,10 +164,10 @@ class SaleOrderShipment(BaseModel):
     id: int
 
 class SaleOrderInvoiceIntegration(BaseModel):
-    id: int
-    integrationId: str
-    app: int
-    createdAt: str
+    id: Optional[int] = None
+    integrationId: Optional[str] = None
+    app: Optional[int] = None
+    createdAt: Optional[str] = None
     documentUrl: Optional[str] = None
     xmlUrl: Optional[str] = None
     decreaseStock: Optional[bool] = None
@@ -244,3 +244,10 @@ class SaleOrder(BaseModel):
         url = config.get_endpoint(endpoint)
         response = requests.post(url, data=payload.model_dump_json(exclude_none=True), headers=config.headers)
         return response.status_code, cls(**response.json())
+
+    @classmethod
+    def invoice_integration(cls, config: ConfigProducteca, sale_order_id: int, payload: "SaleOrder"):
+        endpoint = f'salesorders/{sale_order_id}/invoiceIntegration'
+        url = config.get_endpoint(endpoint)
+        response = requests.put(url, headers=config.headers, data=payload.model_dump_json(exclude_none=True))
+        return response.status_code, response.json()
