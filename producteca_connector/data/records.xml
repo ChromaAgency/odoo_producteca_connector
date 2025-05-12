@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<odoo>
+    <record id="producteca_contact" model="res.partner">
+        <field name="name">Contacto Genérico de producteca</field>
+    </record>
+</odoo>

@@ -31,6 +31,7 @@
         'views/sale.order.cart.xml',
         'security/ir.model.access.csv',
         'security/res.groups.xml',
+        'data/records.xml'
     ],
     'demo': [],
 }

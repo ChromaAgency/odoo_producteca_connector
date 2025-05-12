@@ -2,8 +2,8 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import requests
 from ..config.config import ConfigProducteca
-
-
+import logging
+_logger = logging.getLogger(__name__)
 
 class SaleOrderLocation(BaseModel):
     streetName: Optional[str] = None
@@ -120,29 +120,29 @@ class SaleOrderPaymentIntegration(BaseModel):
     app: int
 
 class SaleOrderPayment(BaseModel):
-    date: str
+    date: Optional[str] = None
     amount: float
     couponAmount: Optional[float] = None
-    status: str
-    method: str
-    integration: SaleOrderPaymentIntegration
+    status: Optional[str] = None
+    method: Optional[str] = None
+    integration: Optional[SaleOrderPaymentIntegration] = None
     transactionFee: Optional[float] = None
-    installments: int
+    installments: Optional[int] = None
     card: Optional[SaleOrderCard] = None
     notes: Optional[str] = None
     authorizationCode: Optional[str] = None
     hasCancelableStatus: Optional[bool] = None
-    id: int
+    id: Optional[int] = None
 
 class SaleOrderShipmentMethod(BaseModel):
-    trackingNumber: str
-    trackingUrl: str
-    courier: str
-    mode: str
-    cost: float
-    type: str
+    trackingNumber: Optional[str] = None
+    trackingUrl: Optional[str] = None
+    courier: Optional[str] = None
+    mode: Optional[str] = None
+    cost: Optional[float] = None
+    type: Optional[str] = None
     eta: Optional[int] = None
-    status: str
+    status: Optional[str] = None
 
 class SaleOrderShipmentProduct(BaseModel):
     product: int
@@ -158,8 +158,8 @@ class SaleOrderShipmentIntegration(BaseModel):
 class SaleOrderShipment(BaseModel):
     date: str
     products: List[SaleOrderShipmentProduct]
-    method: SaleOrderShipmentMethod
-    integration: SaleOrderShipmentIntegration
+    method: Optional[SaleOrderShipmentMethod] = None
+    integration: Optional[SaleOrderShipmentIntegration] = None
     receiver: Optional[str] = None
     id: int
 

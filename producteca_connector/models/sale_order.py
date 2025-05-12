@@ -3,6 +3,8 @@ from ..utils.sales_orders.sales_orders import SaleOrder
 from ..utils.config.config import ConfigProducteca
 from odoo.exceptions import UserError
 from ..models.producteca_queue import ACCEPTATION_CODES
+import logging
+_logger = logging.getLogger(__name__)
 
 class SaleOrder(models.Model):
     _inherit = "sale.order"
@@ -12,6 +14,7 @@ class SaleOrder(models.Model):
     origin_platform = fields.Char(string="Origin Platform")
     invoice_integration_producteca_id = fields.Char(string="Invoice Integration Producteca ID")
     producteca_app_id = fields.Integer(string="Producteca App ID")
+    producteca_shipment_data = fields.Text(string="Información del envío")
 
     def action_close_order(self):
         connection = self.env['producteca.connections'].sudo().search([('producteca_id', '=', self.producteca_id)])
@@ -65,9 +68,9 @@ class SaleOrder(models.Model):
         return moves
     
     def write(self, vals):
-        vals = super().write(vals)
+        _ = super().write(vals)
         for rec in self:
-            if rec.producteca_id and ('note' in vals or 'tag_ids' in vals):
+            if rec.producteca_id and ('note' in vals or 'tag_ids' in vals) and not self.env.context.get('creation_from_queue', False):
                 connection = self.env['producteca.connections'].sudo().search([('producteca_id', '=', rec.producteca_id)])
                 if not connection:
                     raise UserError("No se encontro la conexion con Producteca para cerrar la orden")
@@ -84,7 +87,7 @@ class SaleOrder(models.Model):
                 response_status, _ = sale_order.synchronize(config, sale_order)
                 if response_status not in ACCEPTATION_CODES:
                     raise UserError("No se pudo actualizar la orden en Producteca")
-                
+        return _
 
 class SaleOrderCart(models.Model):
     _name = "sale.order.cart"

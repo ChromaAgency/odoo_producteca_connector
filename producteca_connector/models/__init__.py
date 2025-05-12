@@ -1,5 +1,5 @@
 from . import res_partner
-from . import producteca_account_config
+from . import producteca_account
 from . import res_company
 from . import producteca_connections
 from . import producteca_queue

@@ -25,3 +25,4 @@ class ProductecaAccountConfig(models.Model):
     is_product_price_modified_by_producteca = fields.Boolean(string='Is Product Price Modified by Producteca?')
     is_producteca_able_to_create_products = fields.Boolean(string='Is Producteca Able to Create Products?')
     create_if_dosnt_exist = fields.Boolean(string='Create If The Product Dosnt Exists')
+    get_orders_from_last_days = fields.Integer(string='Get Orders From Last Days', default=7)

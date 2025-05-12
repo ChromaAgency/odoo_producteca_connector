@@ -149,23 +149,21 @@ class SearchSalesOrderParams(BaseModel):
     top: Optional[int]
     skip: Optional[int]
     filter: Optional[str] = Field(default=None, alias="$filter")
-
+    class Config:
+        allow_population_by_field_name = True
 
 class SearchSalesOrder:
-    endpoint: str = "search/saleorders"
+    endpoint: str = "search/salesorders"
+
 
     @classmethod
     def search_saleorder(cls, config: ConfigProducteca, params: SearchSalesOrderParams):
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"apiKey={config.api_key}&token={config.token}",
-            "Accept": "*/*",
-        }
+        headers = config.headers
         url = config.get_endpoint(cls.endpoint)
+        new_url = f"{url}?$filter={params.filter}&top={params.top}&skip={params.skip}"
         response = requests.get(
-            url,
+            new_url,
             headers=headers,
-            params=params.model_dump(by_alias=True, exclude_none=True),
         )
         return response.json(), response.status_code
 

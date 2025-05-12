@@ -6,7 +6,7 @@ from ..utils.sales_orders.sales_orders import SaleOrder
 import logging
 from datetime import datetime, timedelta
 from odoo.addons.base.models.res_users import Command
-import urllib.parse
+from urllib.parse import quote
 from odoo.tools.safe_eval import safe_eval
 ACCEPTATION_CODES = [200, 201, 202, 205, 206, 207]
 _logger = logging.getLogger(__name__)
@@ -99,6 +99,7 @@ class ProductecaQueue(models.Model):
     def process_product_create_queue(self):
         queue_records = self.search([('producteca_method', '=', 'create'), ('active', '=', True), ('model', '=', 'product.product')])
         connection_array_dict = []
+        existing_connections = self.env['producteca.connections'].sudo().search([('product_id', '!=', False)])
         for queue_record in queue_records:
             config = ConfigProducteca(
                 token=queue_record.producteca_account_id.bearer_token,
@@ -115,6 +116,9 @@ class ProductecaQueue(models.Model):
             queue_record.response_status = response_status
             if response_status in ACCEPTATION_CODES:
                 queue_record.active = False
+                existing_connection = existing_connections.filtered(lambda x: x.producteca_id == product_response.get('id') and x.producteca_account_id == queue_record.producteca_account_id)
+                if existing_connection:
+                    continue
                 connection_array_dict.append({
                     "producteca_account_id": queue_record.producteca_account_id.id,
                     "product_id": queue_record.odoo_item_id,
@@ -282,10 +286,15 @@ class ProductecaQueue(models.Model):
             'default_code': producteca_response.get('sku'),
             'barcode': producteca_response.get('barcode'),
             'list_price': producteca_response.get('buyingPrice'),
-            'product_brand_id': producteca_response.get('brand'),
             'description': producteca_response.get('notes'),
             'is_producteca_product': True,
         }
+        if producteca_response.get('brand'):
+            brand = self.env['product.brand'].sudo().search([('name', '=', producteca_response.get('brand'))], limit=1)
+            if brand:
+                vals['product_brand_id'] = brand.id
+            else:
+                vals['product_brand_id'] = self.env['product.brand'].sudo().create({'name': producteca_response.get('brand')}).id
         
         if producteca_response.get('tags'):
             vals['product_tag_ids'] = self._handle_producteca_tags_dict(producteca_response)
@@ -349,7 +358,7 @@ class ProductecaQueue(models.Model):
 
     ### Create Sale orders Queue ###
 
-    def enqueue_last_7_days_orders_from_producteca(self):
+    def enqueue_last_x_days_orders_from_producteca(self):
         producteca_accounts = self.env['producteca.account'].sudo().search([('active', '=', True)])
         queue_records_create = []
         
@@ -359,19 +368,19 @@ class ProductecaQueue(models.Model):
                 api_key=account.api_key
             )
             today = datetime.now()
-            seven_days_ago = today - timedelta(days=7)
-            
+            x_days_ago = (today - timedelta(days=account.get_orders_from_last_days)).strftime('%Y-%m-%d')
             filter_str = (
                 f"paymentStatus eq 'Approved' and "
-                f"date gt {seven_days_ago.isoformat()}"
+                f"date gt {x_days_ago}"
             )
+            
+            encoded_filter = quote(filter_str)
             
             params = SearchSalesOrderParams(
                 top=100,
                 skip=0,
-                filter=filter_str
-            )
-            
+                **{"$filter": encoded_filter}
+            )            
             saleorder_response, response_status = SearchSalesOrder.search_saleorder(config=config, params=params)
             if response_status in ACCEPTATION_CODES:
                 for saleorder in saleorder_response.get('results', []):
@@ -482,7 +491,7 @@ class ProductecaQueue(models.Model):
                     'price_unit': delivery_price,
                     'name': delivery_product.display_name,
                 })
-        return False
+        return
     
     def _prepare_sale_order_dict(self, body, account, connections, carts, queue_record, process_type, order_lines=False):
         lines = body.get('lines', [])
@@ -498,7 +507,6 @@ class ProductecaQueue(models.Model):
             product_id = line.get('product', {}).get('id')
             variation_id = line.get('variation', {}).get('id')
             connection = connections.filtered(lambda x: (x.producteca_id == str(product_id) or x.producteca_variation_id == str(variation_id)) and x.producteca_account_id == account)
-
             if not connection:
                 missing_products.update({product_id: line})
                 continue
@@ -523,14 +531,15 @@ class ProductecaQueue(models.Model):
                     'name': product.display_name,
                     'warehouse_id': warehouse,
                 }))
-        sale_order_lines.append(self._compute_delivery_price(body))
+        if body.get('shippingCost', 0) > 0:
+            sale_order_lines.append(self._compute_delivery_price(body))
         origin_platform = self._mapped_origin_application(body.get('salesChannel'))
         if missing_products:
             self._create_producteca_queue_for_missing_products(queue_record, account, missing_products)
             return False
         partner_id = self.env['res.partner'].sudo().search([('producteca_id', '=', body.get('contactId')), ('parent_id', '!=', False)], limit=1)
         if not partner_id:
-            partner_id = self._create_producteca_partner(body.get('contactId'), queue_record.producteca_account_id)
+            partner_id = self._create_producteca_partner(body.get('orderId'), queue_record.producteca_account_id)
         cart_id = None
         if body.get('cartId') != None: #Check if this is none on true data
             cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId')).id
@@ -541,13 +550,14 @@ class ProductecaQueue(models.Model):
         return {
             'partner_id': partner_id.id,
             'order_line': sale_order_lines,
-            'origin_platform': origin_platform,
+            'origin_platform': origin_platform if origin_platform else '',
             'producteca_id': body.get('id'),
             'company_id': account.company_id.id,
             'cart_id': cart_id,
             'invoice_integration_producteca_id': body.get('invoiceIntegration', {}).get('integrationId'),
             'producteca_app_id': body.get('invoiceIntegration', {}).get('app'),
-            'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id
+            'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id,
+            'producteca_shipment_data': body.get('shipments'),
         }
         
     def process_producteca_order_queue(self):
@@ -592,16 +602,17 @@ class ProductecaQueue(models.Model):
             queue_record.active = False
 
         if quotation_status_sale_orders:
-            created_sale_orders = self.env['sale.order'].sudo().create(quotation_status_sale_orders)
+            _logger.info(quotation_status_sale_orders)
+            created_sale_orders = self.env['sale.order'].sudo().with_context(creation_from_queue=True).create(quotation_status_sale_orders)
             created_sale_orders.order_line._compute_tax_id()
-            created_sale_orders.action_confirm()
+            created_sale_orders.with_context(creation_from_queue=True).action_confirm()
         if draft_invoice_status_sale_orders:
-            created_sale_orders = self.env['sale.order'].sudo().create(draft_invoice_status_sale_orders)
-            created_sale_orders.action_confirm()
+            created_sale_orders = self.env['sale.order'].sudo().with_context(creation_from_queue=True).create(draft_invoice_status_sale_orders)
+            created_sale_orders.with_context(creation_from_queue=True).action_confirm()
             created_sale_orders._create_invoices()
         if confirm_status_sale_orders:
-            created_sale_orders = self.env['sale.order'].sudo().create(confirm_status_sale_orders)
-            created_sale_orders.action_confirm()
+            created_sale_orders = self.env['sale.order'].sudo().with_context(creation_from_queue=True).create(confirm_status_sale_orders)
+            created_sale_orders.with_context(creation_from_queue=True).action_confirm()
             moves = created_sale_orders._create_invoices()
             for move in moves:
                 move.action_post()
@@ -613,6 +624,9 @@ class ProductecaQueue(models.Model):
             )
         sale_order = SaleOrder.get(config, producteca_id)
         contact = sale_order.contact
+        if not contact:
+            contact_ref = self.env.ref('producteca_connector.producteca_contact')
+            return contact_ref
         company = self.env['res.partner'].sudo().search([('vat', '=', contact.billingInfo.docNumber), ('parent_id', '=', False)], limit=1)
         if not company:
             identification = self.env['l10n_latam.identification.type'].sudo().search([('name', '=', contact.billingInfo.docType)], limit=1)
@@ -667,6 +681,13 @@ class ProductecaQueue(models.Model):
                 producteca_body_queue.update({
                     "variation_id": int(line.get('variation', {}).get('id'))
                 })
+                product_in_queue = self.search([
+                    ('producteca_method', '=', 'odoo_create'),
+                    ('producteca_body', '=', producteca_body_queue),
+                    ('producteca_account_id', '=', account.id)
+                ])
+                if product_in_queue:
+                    continue
                 self.create({
                     'producteca_account_id': account.id,                    
                     'producteca_body': producteca_body_queue,
@@ -727,4 +748,3 @@ class ProductecaQueue(models.Model):
                     queue_record.active = False
                 else:
                     queue_record.internal_process_error_msg = response
-        

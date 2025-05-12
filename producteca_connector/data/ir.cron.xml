@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="ir_cron_create_queue" model="ir.cron">
-        <field name="name">Create Producteca Queue</field>
+        <field name="name">Create Product Producteca Queue</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
         <field name="code">model.create_product_in_producteca_queue()</field>
@@ -46,11 +46,11 @@
         <field name="active" eval="True"/>
     </record>
 
-    <record id="ir_cron_enqueue_last_7_days_orders_from_producteca" model="ir.cron">
-        <field name="name">Enqueue Last 7 Days Orders From Producteca</field>
+    <record id="ir_cron_enqueue_last_x_days_orders_from_producteca" model="ir.cron">
+        <field name="name">Enqueue Last X Days Orders From Producteca</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
-        <field name="code">model.enqueue_last_7_days_orders_from_producteca()</field>
+        <field name="code">model.enqueue_last_x_days_orders_from_producteca()</field>
         <field name="interval_number">1</field>
         <field name="interval_type">days</field>
         <field name="active" eval="True"/>
