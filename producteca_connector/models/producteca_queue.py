@@ -279,6 +279,31 @@ class ProductecaQueue(models.Model):
         all_tags = existing_tags + new_tags
         return [(6, 0, all_tags.ids)] 
 
+    def _handle_producteca_connection_ids(self, producteca_response, odoo_product):
+        if not producteca_response.get('account_id'):
+            return []
+            
+        if odoo_product and odoo_product.producteca_connection_ids:
+            account_exists = False
+            for connection in odoo_product.producteca_connection_ids:
+                if connection.producteca_account_id == producteca_response.get('account_id'):
+                    account_exists = True
+                    break
+            
+            if not account_exists:
+                return [Command.link(0)] + [Command.create({
+                    "producteca_account_id": producteca_response.get('account_id'),
+                    "producteca_id": producteca_response.get('id'),
+                    "producteca_variation_id": producteca_response.get('variation_id')
+                })]
+            return []
+        else:
+            return [Command.create({
+                "producteca_account_id": producteca_response.get('account_id'),
+                "producteca_id": producteca_response.get('id'),
+                "producteca_variation_id": producteca_response.get('variation_id')
+            })]
+
     def _prepare_odoo_product_dict(self, producteca_response, odoo_product):
         producteca_response = self.filter_empty_values(producteca_response)
         vals = {
@@ -298,18 +323,12 @@ class ProductecaQueue(models.Model):
         
         if producteca_response.get('tags'):
             vals['product_tag_ids'] = self._handle_producteca_tags_dict(producteca_response)
-        if producteca_response.get('attributes') and not odoo_product:
-            vals['attribute_line_ids'] = self._handle_producteca_attribute_dict(producteca_response, False)
-
-        if producteca_response.get('attributes') and odoo_product:
+        if producteca_response.get('attributes'):
             vals['attribute_line_ids'] = self._handle_producteca_attribute_dict(producteca_response, odoo_product)
 
-        if producteca_response.get('account_id'):
-            vals['producteca_connection_ids'] = [Command.create({
-                "producteca_account_id": producteca_response.get('account_id'),
-                "producteca_id": producteca_response.get('id'),
-                "producteca_variation_id": producteca_response.get('variation_id')
-            })]
+        connection_ids = self._handle_producteca_connection_ids(producteca_response, odoo_product)
+        if connection_ids:
+            vals['producteca_connection_ids'] = connection_ids
         
         dimensions = producteca_response.get('dimensions', {})
         if dimensions:
@@ -558,6 +577,7 @@ class ProductecaQueue(models.Model):
             'producteca_app_id': body.get('invoiceIntegration', {}).get('app'),
             'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id,
             'producteca_shipment_data': body.get('shipments'),
+            'producteca_account': account.id,
         }
         
     def process_producteca_order_queue(self):
@@ -602,17 +622,16 @@ class ProductecaQueue(models.Model):
             queue_record.active = False
 
         if quotation_status_sale_orders:
-            _logger.info(quotation_status_sale_orders)
-            created_sale_orders = self.env['sale.order'].sudo().with_context(creation_from_queue=True).create(quotation_status_sale_orders)
+            created_sale_orders = self.env['sale.order'].sudo().create(quotation_status_sale_orders)
             created_sale_orders.order_line._compute_tax_id()
-            created_sale_orders.with_context(creation_from_queue=True).action_confirm()
+            created_sale_orders.action_confirm()
         if draft_invoice_status_sale_orders:
-            created_sale_orders = self.env['sale.order'].sudo().with_context(creation_from_queue=True).create(draft_invoice_status_sale_orders)
-            created_sale_orders.with_context(creation_from_queue=True).action_confirm()
+            created_sale_orders = self.env['sale.order'].sudo().create(draft_invoice_status_sale_orders)
+            created_sale_orders.action_confirm()
             created_sale_orders._create_invoices()
         if confirm_status_sale_orders:
-            created_sale_orders = self.env['sale.order'].sudo().with_context(creation_from_queue=True).create(confirm_status_sale_orders)
-            created_sale_orders.with_context(creation_from_queue=True).action_confirm()
+            created_sale_orders = self.env['sale.order'].sudo().create(confirm_status_sale_orders)
+            created_sale_orders.action_confirm()
             moves = created_sale_orders._create_invoices()
             for move in moves:
                 move.action_post()
