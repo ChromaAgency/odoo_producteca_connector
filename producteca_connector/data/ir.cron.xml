@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="ir_cron_create_queue" model="ir.cron">
-        <field name="name">Create Product Producteca Queue</field>
+        <field name="name">Producteca: Crear Cola de Productos</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
         <field name="code">model.create_product_in_producteca_queue()</field>
@@ -10,7 +10,7 @@
         <field name="active" eval="True"/>
     </record>
     <record id="ir_cron_process_product_create_queue" model="ir.cron">
-        <field name="name">Process Producteca Create Queue</field>
+        <field name="name">Producteca: Procesar Cola de Creación de Productos</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
         <field name="code">model.process_product_create_queue()</field>
@@ -19,7 +19,7 @@
         <field name="active" eval="True"/>
     </record>
     <record id="ir_cron_process_product_update_queue" model="ir.cron">
-        <field name="name">Process Producteca Update Queue</field>
+        <field name="name">Producteca: Procesar Cola de Actualización de Productos</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
         <field name="code">model.process_product_update_queue()</field>
@@ -28,7 +28,7 @@
         <field name="active" eval="True"/>
     </record>
     <record id="ir_cron_process_product_stock_queue" model="ir.cron">
-        <field name="name">Process Producteca Stock Queue</field>
+        <field name="name">Producteca: Procesar Cola de Stock de Productos</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
         <field name="code">model.process_product_stock_queue()</field>
@@ -37,7 +37,7 @@
         <field name="active" eval="True"/>
     </record>
     <record id="ir_cron_obtain_producteca_products_process_queue" model="ir.cron">
-        <field name="name">Obtain From Producteca Products Process Queue</field>
+        <field name="name">Producteca: Obtener y Procesar Productos</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
         <field name="code">model.obtain_producteca_products_process_queue()</field>
@@ -47,7 +47,7 @@
     </record>
 
     <record id="ir_cron_enqueue_last_x_days_orders_from_producteca" model="ir.cron">
-        <field name="name">Enqueue Last X Days Orders From Producteca</field>
+        <field name="name">Producteca: Encolar Órdenes de los Últimos X Días</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
         <field name="code">model.enqueue_last_x_days_orders_from_producteca()</field>
@@ -56,7 +56,7 @@
         <field name="active" eval="True"/>
     </record>
     <record id="ir_cron_process_producteca_orders_queue" model="ir.cron">
-        <field name="name">Process Producteca Orders Queue</field>
+        <field name="name">Producteca: Procesar Cola de Órdenes</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
         <field name="code">model.process_producteca_order_queue()</field>
@@ -65,7 +65,7 @@
         <field name="active" eval="True"/>
     </record>
     <record id="ir_cron_process_queue_product_create_in_odoo" model="ir.cron">
-        <field name="name">Process Producteca Product Create Queue In Odoo</field>
+        <field name="name">Producteca: Procesar Cola de Creación de Productos en Odoo</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
         <field name="code">model.process_queue_product_create_in_odoo()</field>
@@ -74,7 +74,7 @@
         <field name="active" eval="True"/>
     </record>
     <record id="ir_cron_update_stock_picking_queue" model="ir.cron">
-        <field name="name">Producteca: Actualizar shipments</field>
+        <field name="name">Producteca: Procesar Cola de Actualización de Shipments</field>
         <field name="model_id" ref="model_producteca_queue"/>
         <field name="state">code</field>
         <field name="code">model.process_update_stock_picking_queue()</field>

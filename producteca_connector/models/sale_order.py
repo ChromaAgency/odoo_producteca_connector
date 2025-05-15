@@ -4,6 +4,7 @@ from ..utils.config.config import ConfigProducteca
 from odoo.exceptions import UserError
 from ..models.producteca_queue import ACCEPTATION_CODES
 import logging
+from odoo.addons.base.models.res_users import Command
 from odoo.tools.safe_eval import safe_eval
 _logger = logging.getLogger(__name__)
 
@@ -21,25 +22,35 @@ class SaleOrder(models.Model):
     def _obtain_carrier_id(self, carrier_name):
         carrier = self.env['delivery.carrier'].search([('name', '=', carrier_name)]).id
         if not carrier:
+            delivery_product = self.env['product.product'].create({
+                'name': f'Servicio de Entrega: {carrier_name}',
+                'type': 'service',
+                'invoice_policy': 'order',
+            })
+            
             carrier = self.env['delivery.carrier'].create({
                 'name': carrier_name,
-                'product_id': self.env.ref('delivery.product_delivery_standard').id,
+                'product_id': delivery_product.id,
             }).id
         return carrier
     
     def _process_picking_with_shipment(self, picking, picking_data):
-        products = {picking.product: picking.quantity for picking in picking_data.get('products')}
+        products = {product_line.get('product'): product_line.get('quantity') for product_line in picking_data.get('products')}
         status = picking_data.get('method').get('status')
         if status == 'Done':
             for line in picking.move_line_ids:
                 line.qty_done = products.get(line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id)
-            picking._action_confirm()
             picking.date_done = picking_data.get('method').get('date')
+            picking.scheduled_date = picking_data.get('method').get('date')
+            _logger.info(picking.date_done)
+            _logger.info(picking.scheduled_date)
+            picking.action_confirm()
         else:
             for line in picking.move_line_ids:
-                line.product_uom_qty = products.get(line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id)
+                line.quantity = products.get(line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id)
             picking.scheduled_date = picking_data.get('method').get('date')
             picking.carrier_tracking_ref = picking_data.get('method').get('trackingNumber')
+            _logger.info(picking.scheduled_date)
         picking.producteca_integration_id = picking_data.get('integration').get('integrationId')
         picking.carrier_id = self._obtain_carrier_id(picking_data.get('method').get('courier'))
     
@@ -55,11 +66,11 @@ class SaleOrder(models.Model):
         }
         product_dict = [
             {
-                "product": product.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id,
-                "variation": product.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).variation_id.producteca_id,
-                "quantity": product.qty_done if picking.state == 'done' else product.product_uom_qty,
+                "product": line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id,
+                "variation": line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_variation_id,
+                "quantity": line.qty_done if picking.state == 'done' else line.quantity,
             }
-            for product in picking.move_line_ids
+            for line in picking.move_line_ids
         ] 
         if product_dict:
             content_dict.update({"products": product_dict})
@@ -74,7 +85,7 @@ class SaleOrder(models.Model):
             if rec.producteca_id and rec.picking_ids and rec.producteca_shipment_data:
                 self = self.with_context(update_from_confirm=True)
                 shipment_data = safe_eval(rec.producteca_shipment_data)
-                shipment_per_picking = {shipment.get('id'): shipment for shipment in shipment_data.get('shipments')}
+                shipment_per_picking = {shipment.get('id'): shipment for shipment in shipment_data}
                 vals_to_send_to_producteca = []
                 
                 for picking in rec.picking_ids:

@@ -577,7 +577,7 @@ class ProductecaQueue(models.Model):
             'producteca_app_id': body.get('invoiceIntegration', {}).get('app'),
             'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id,
             'producteca_shipment_data': body.get('shipments'),
-            'producteca_account': account.id,
+            'producteca_account_id': account.id,
         }
         
     def process_producteca_order_queue(self):
@@ -641,6 +641,7 @@ class ProductecaQueue(models.Model):
                 token=account.bearer_token,
                 api_key=account.api_key
             )
+        _logger.info("producteca id %s", producteca_id)
         sale_order = SaleOrder.get(config, producteca_id)
         contact = sale_order.contact
         if not contact:
