@@ -767,3 +767,29 @@ class ProductecaQueue(models.Model):
                     queue_record.active = False
                 else:
                     queue_record.internal_process_error_msg = response
+
+    ### Update Stock Picking Queue ###
+    
+    def process_update_stock_picking_queue(self):
+        queue_records = self.search([
+            ('producteca_method', 'in', ['update','create']),
+            ('active', '=', True),
+            ('model', '=', 'stock.picking')
+        ])
+        if not queue_records:
+            return False
+        for queue_record in queue_records:
+            producteca_body = safe_eval(queue_record.producteca_body)
+            config = ConfigProducteca(
+                token=queue_record.producteca_account_id.bearer_token,
+                api_key=queue_record.producteca_account_id.api_key
+            )
+            producteca_body.update({
+                "id": queue_record.odoo_item_id
+            })
+            sale_order = SaleOrder(config=config, **producteca_body)
+            response, response_status = SaleOrder.synchronize(config, sale_order)
+            queue_record.producteca_response = response
+            queue_record.response_status = response_status
+            if response_status in ACCEPTATION_CODES:
+                queue_record.active = False

@@ -11,17 +11,17 @@ PRODUCTECA_FIELDS = [
 class StockPicking(models.Model):
     _inherit = "stock.picking"
     
-    producteca_id = fields.Char(string="Producteca ID")
     producteca_integration_id = fields.Char(string="Producteca Integration ID")
+    producteca_shipment_id = fields.Char(string="Producteca Shipment ID")
 
 
     def write(self, vals):
         res = super(StockPicking, self).write(vals)
         for picking in self:
-            if picking.producteca_id and not self.env.context.get("update_from_confirm", False) and any(field in vals for field in PRODUCTECA_FIELDS):
-                producteca_dict = {}                
+            if picking.producteca_shipment_id and not self.env.context.get("update_from_confirm", False) and any(field in vals for field in PRODUCTECA_FIELDS):
+                producteca_content_dict = {}                
                 if "date_done" in vals or "scheduled_date" in vals:
-                    producteca_dict["date"] = picking.date_done if picking.state == 'done' else picking.scheduled_date                
+                    producteca_content_dict["date"] = picking.date_done if picking.state == 'done' else picking.scheduled_date                
                 method_dict = {}                
                 if "carrier_tracking_ref" in vals:
                     method_dict["trackingNumber"] = picking.carrier_tracking_ref
@@ -31,18 +31,15 @@ class StockPicking(models.Model):
                 if "state" in vals:
                     method_dict["status"] = "Done" if picking.state == 'done' else "PickingPending"                
                 if method_dict:
-                    producteca_dict["method"] = method_dict
-                
-                #TODO va  al aqueue
-                # Aquí puedes agregar la lógica para enviar este diccionario a Producteca
-                # Por ejemplo:
-                # self.env['producteca.queue'].create({
-                #     'producteca_method': 'update',
-                #     'producteca_body': producteca_dict,
-                #     'model': 'stock.picking',
-                #     'odoo_item_id': picking.id,
-                # })
-
+                    producteca_content_dict["method"] = method_dict
+                producteca_dict = {"shipments":[producteca_content_dict]}
+                self.env['producteca.queue'].create({
+                    'producteca_method': 'update',
+                    'producteca_body': producteca_dict,
+                    'model':'stock.picking',
+                    'odoo_item_id': picking.sale_id.producteca_id,
+                    'producteca_account_id': picking.sale_id.producteca_account_id.id,
+                })
         return res
 
 
@@ -53,20 +50,20 @@ class StockMoveLine(models.Model):
     def write(self, vals):
         res = super(StockMoveLine, self).write(vals)
         for move_line in self:
-            if move_line.picking_id.producteca_id and not self.env.context.get("update_from_confirm", False) and ["qty_done", "product_uom_qty"] in vals:
-                producteca_dict = {"products":{
-                    "product": move_line.product_id.producteca_connection_ids.producteca_variation_id,
-                    "variation": move_line.product_id.producteca_connection_ids.producteca_variation_id,
+            if move_line.picking_id.sale_id.producteca_id and not self.env.context.get("update_from_confirm", False) and ["qty_done", "product_uom_qty"] in vals:
+                account = move_line.picking_id.sale_id.producteca_account_id
+                product_dict = {"products":{
+                    "product": move_line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == account).producteca_variation_id,
+                    "variation": move_line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == account).producteca_variation_id,
                     "quantity": move_line.qty_done if move_line.picking.state == 'done' else move_line.product_uom_qty,
                 }}
-                #TODO ir a la queue
+                producteca_dict = {"shipments":[product_dict]}
+                self.env['producteca.queue'].create({
+                    'producteca_method': 'update',
+                    'producteca_body': producteca_dict,
+                    'model':'stock.picking',
+                    'odoo_item_id': move_line.picking_id.sale_id.producteca_id,
+                    'producteca_account_id': account.id,
+                })
 
         return res
-            # Aquí puedes agregar la lógica para enviar este diccionario a Producteca
-                # Por ejemplo:
-                # self.env['producteca.queue'].create({
-                #     'producteca_method': 'update',
-                #     'producteca_body': producteca_dict,
-                #     'model': 'stock.picking',
-                #     'odoo_item_id': picking.id,
-                # })
