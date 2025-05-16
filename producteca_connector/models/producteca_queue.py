@@ -515,7 +515,7 @@ class ProductecaQueue(models.Model):
                 })
             else:
                 delivery_product = self.env['product.product'].create({
-                'name': f'Servicio de Entrega: {carrier_name}',
+                'name': carrier_product_name,
                 'type': 'service',
                 'invoice_policy': 'order',
             })
