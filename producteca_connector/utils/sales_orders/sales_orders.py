@@ -160,7 +160,7 @@ class SaleOrderShipment(BaseModel):
     products: List[SaleOrderShipmentProduct]
     method: Optional[SaleOrderShipmentMethod] = None
     integration: Optional[SaleOrderShipmentIntegration] = None
-    receiver: Optional[str] = None
+    receiver: Optional[dict] = None
     id: int
 
 class SaleOrderInvoiceIntegration(BaseModel):

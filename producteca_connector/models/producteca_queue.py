@@ -3,8 +3,10 @@ from ..utils.products.products import Product
 from ..utils.config.config import ConfigProducteca
 from ..utils.search.search_sale_orders import SearchSalesOrder, SearchSalesOrderParams
 from ..utils.sales_orders.sales_orders import SaleOrder
+from ..utils.shipments.shipment import Shipment
 import logging
 from datetime import datetime, timedelta
+import datetime
 from odoo.addons.base.models.res_users import Command
 from urllib.parse import quote
 from odoo.tools.safe_eval import safe_eval
@@ -581,6 +583,7 @@ class ProductecaQueue(models.Model):
         }
         
     def process_producteca_order_queue(self):
+        _logger.info('producteca order queue')
         queue_records = self.search([
             ('producteca_method', '=', 'get'),
             ('active', '=', True),
@@ -773,7 +776,7 @@ class ProductecaQueue(models.Model):
     
     def process_update_stock_picking_queue(self):
         queue_records = self.search([
-            ('producteca_method', 'in', ['update','create']),
+            ('producteca_method', '=', 'update'),
             ('active', '=', True),
             ('model', '=', 'stock.picking')
         ])
@@ -785,11 +788,29 @@ class ProductecaQueue(models.Model):
                 token=queue_record.producteca_account_id.bearer_token,
                 api_key=queue_record.producteca_account_id.api_key
             )
-            producteca_body.update({
-                "id": queue_record.odoo_item_id
-            })
-            sale_order = SaleOrder(config=config, **producteca_body)
-            response, response_status = SaleOrder.synchronize(config, sale_order)
+            shipment = Shipment(config=config, **producteca_body)
+            response, response_status = Shipment.update(config, queue_record.odoo_item_id, producteca_body.get("id"), shipment)
+            queue_record.producteca_response = response
+            queue_record.response_status = response_status
+            if response_status in ACCEPTATION_CODES:
+                queue_record.active = False
+
+    def process_create_stock_picking_queue(self):
+        queue_records = self.search([
+            ('producteca_method', '=', 'create'),
+            ('active', '=', True),
+            ('model', '=','stock.picking')
+        ])
+        if not queue_records:
+            return False
+        for queue_record in queue_records:
+            producteca_body = safe_eval(queue_record.producteca_body)
+            config = ConfigProducteca(
+                token=queue_record.producteca_account_id.bearer_token,
+                api_key=queue_record.producteca_account_id.api_key
+            )
+            shipment = Shipment(config=config, **producteca_body)
+            response, response_status = Shipment.create(config, queue_record.odoo_item_id, shipment)
             queue_record.producteca_response = response
             queue_record.response_status = response_status
             if response_status in ACCEPTATION_CODES:

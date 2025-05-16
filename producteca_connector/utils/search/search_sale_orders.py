@@ -150,7 +150,7 @@ class SearchSalesOrderParams(BaseModel):
     skip: Optional[int]
     filter: Optional[str] = Field(default=None, alias="$filter")
     class Config:
-        allow_population_by_field_name = True
+        validate_by_name = True
 
 class SearchSalesOrder:
     endpoint: str = "search/salesorders"

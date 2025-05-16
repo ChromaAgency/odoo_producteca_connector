@@ -6,6 +6,7 @@ from ..models.producteca_queue import ACCEPTATION_CODES
 import logging
 from odoo.addons.base.models.res_users import Command
 from odoo.tools.safe_eval import safe_eval
+
 _logger = logging.getLogger(__name__)
 
 class SaleOrder(models.Model):
@@ -37,20 +38,23 @@ class SaleOrder(models.Model):
     def _process_picking_with_shipment(self, picking, picking_data):
         products = {product_line.get('product'): product_line.get('quantity') for product_line in picking_data.get('products')}
         status = picking_data.get('method').get('status')
+        raw_date = picking_data.get('date')
+        if raw_date:
+            cleaned_date = raw_date.split('.')[0].replace('T', ' ')
+            parsed_date = fields.Datetime.to_datetime(cleaned_date)
+        else:
+            parsed_date = fields.Datetime.now()
         if status == 'Done':
             for line in picking.move_line_ids:
                 line.qty_done = products.get(line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id)
-            picking.date_done = picking_data.get('method').get('date')
-            picking.scheduled_date = picking_data.get('method').get('date')
-            _logger.info(picking.date_done)
-            _logger.info(picking.scheduled_date)
+            picking.date_done = parsed_date
+            picking.scheduled_date = parsed_date
             picking.action_confirm()
         else:
             for line in picking.move_line_ids:
                 line.quantity = products.get(line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id)
-            picking.scheduled_date = picking_data.get('method').get('date')
+            picking.scheduled_date = parsed_date
             picking.carrier_tracking_ref = picking_data.get('method').get('trackingNumber')
-            _logger.info(picking.scheduled_date)
         picking.producteca_integration_id = picking_data.get('integration').get('integrationId')
         picking.carrier_id = self._obtain_carrier_id(picking_data.get('method').get('courier'))
     
@@ -80,9 +84,11 @@ class SaleOrder(models.Model):
         return producteca_dict
 
     def action_confirm(self):
+        _logger.info('pre confirm')
         _ = super().action_confirm()
         for rec in self:
             if rec.producteca_id and rec.picking_ids and rec.producteca_shipment_data:
+                _logger.info('entered if')
                 self = self.with_context(update_from_confirm=True)
                 shipment_data = safe_eval(rec.producteca_shipment_data)
                 shipment_per_picking = {shipment.get('id'): shipment for shipment in shipment_data}
