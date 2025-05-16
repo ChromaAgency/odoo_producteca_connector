@@ -6,7 +6,6 @@ from ..utils.sales_orders.sales_orders import SaleOrder
 from ..utils.shipments.shipment import Shipment
 import logging
 from datetime import datetime, timedelta
-import datetime
 from odoo.addons.base.models.res_users import Command
 from urllib.parse import quote
 from odoo.tools.safe_eval import safe_eval
@@ -583,7 +582,6 @@ class ProductecaQueue(models.Model):
         }
         
     def process_producteca_order_queue(self):
-        _logger.info('producteca order queue')
         queue_records = self.search([
             ('producteca_method', '=', 'get'),
             ('active', '=', True),
@@ -627,14 +625,14 @@ class ProductecaQueue(models.Model):
         if quotation_status_sale_orders:
             created_sale_orders = self.env['sale.order'].sudo().create(quotation_status_sale_orders)
             created_sale_orders.order_line._compute_tax_id()
-            created_sale_orders.action_confirm()
+            created_sale_orders.with_context(update_from_confirm=True).action_confirm()
         if draft_invoice_status_sale_orders:
             created_sale_orders = self.env['sale.order'].sudo().create(draft_invoice_status_sale_orders)
-            created_sale_orders.action_confirm()
+            created_sale_orders.with_context(update_from_confirm=True).action_confirm()
             created_sale_orders._create_invoices()
         if confirm_status_sale_orders:
             created_sale_orders = self.env['sale.order'].sudo().create(confirm_status_sale_orders)
-            created_sale_orders.action_confirm()
+            created_sale_orders.with_context(update_from_confirm=True).action_confirm()
             moves = created_sale_orders._create_invoices()
             for move in moves:
                 move.action_post()

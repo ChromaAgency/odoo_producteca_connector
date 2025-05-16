@@ -18,7 +18,7 @@ class StockPicking(models.Model):
     def write(self, vals):
         res = super(StockPicking, self).write(vals)
         for picking in self:
-            if picking.producteca_shipment_id and not self.env.context.get("update_from_confirm", False) and any(field in vals for field in PRODUCTECA_FIELDS):
+            if picking.producteca_shipment_id and any(field in vals for field in PRODUCTECA_FIELDS) and not self.env.context.get("update_from_confirm") :
                 producteca_content_dict = {"id": picking.producteca_shipment_id}                
                 date_to_send = picking.date_done if picking.state == 'done' else picking.scheduled_date
                 producteca_content_dict["date"] = date_to_send.isoformat()
@@ -50,7 +50,7 @@ class StockMoveLine(models.Model):
     def write(self, vals):
         res = super(StockMoveLine, self).write(vals)
         for move_line in self:
-            if move_line.picking_id.sale_id.producteca_id and not self.env.context.get("update_from_confirm", False) and ("qty_done" in vals and "product_uom_qty" in vals):
+            if move_line.picking_id.sale_id.producteca_id and ("qty_done" in vals and "product_uom_qty" in vals) and not self.env.context.get("update_from_confirm"):
                 account = move_line.picking_id.sale_id.producteca_account_id
                 product_dict = {"products":{
                     "product": move_line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == account).producteca_variation_id,

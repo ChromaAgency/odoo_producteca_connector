@@ -84,12 +84,9 @@ class SaleOrder(models.Model):
         return producteca_dict
 
     def action_confirm(self):
-        _logger.info('pre confirm')
         _ = super().action_confirm()
         for rec in self:
             if rec.producteca_id and rec.picking_ids and rec.producteca_shipment_data:
-                _logger.info('entered if')
-                self = self.with_context(update_from_confirm=True)
                 shipment_data = safe_eval(rec.producteca_shipment_data)
                 shipment_per_picking = {shipment.get('id'): shipment for shipment in shipment_data}
                 vals_to_send_to_producteca = []
