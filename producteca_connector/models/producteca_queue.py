@@ -497,9 +497,11 @@ class ProductecaQueue(models.Model):
         return reverse_mapping.get(sale_channel_id, 'Unknown')
         
     def _compute_delivery_price(self, body):
-        delivery_price = body.get('shippingCost', 0)
-        if delivery_price > 0:
-            delivery_product = self.env['product.product'].sudo().search([('default_code', 'ilike', 'delivery')])
+        has_delivery = body.get('hasAnyShipments', 0)
+        if has_delivery:
+            delivery_price = body.get('totalShippingCost', 0)
+            carrier_product_name = f"Servicio de Entrega: {picking_data.get('method').get('courier')}"
+            delivery_product = self.env['product.product'].sudo().search([('name', '=', carrier_product_name)])
             if delivery_product:
                 product_tax = delivery_product.taxes_id
                 if product_tax:
@@ -511,6 +513,18 @@ class ProductecaQueue(models.Model):
                     'price_unit': delivery_price,
                     'name': delivery_product.display_name,
                 })
+            else:
+                delivery_product = self.env['product.product'].create({
+                'name': f'Servicio de Entrega: {carrier_name}',
+                'type': 'service',
+                'invoice_policy': 'order',
+            })
+            return Command.create({
+                'product_id': delivery_product.id,
+                'product_uom_qty': 1,
+                'price_unit': delivery_price,
+                'name': delivery_product.display_name,
+            })
         return
     
     def _prepare_sale_order_dict(self, body, account, connections, carts, queue_record, process_type, order_lines=False):
