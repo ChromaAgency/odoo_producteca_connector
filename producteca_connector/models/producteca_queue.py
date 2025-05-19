@@ -497,7 +497,7 @@ class ProductecaQueue(models.Model):
         return reverse_mapping.get(sale_channel_id, 'Unknown')
         
     def _compute_delivery_price(self, body):
-        has_delivery = body.get('hasAnyShipments', 0)
+        has_delivery = body.get('hasAnyShipments', False)
         if has_delivery:
             delivery_price = body.get('totalShippingCost', 0)
             carrier_product_name = f"Servicio de Entrega: {picking_data.get('method').get('courier')}"
@@ -565,7 +565,7 @@ class ProductecaQueue(models.Model):
                     'name': product.display_name,
                     'warehouse_id': warehouse,
                 }))
-        if body.get('shippingCost', 0) > 0:
+        if body.get('hasAnyShipments', False) == True:
             sale_order_lines.append(self._compute_delivery_price(body))
         origin_platform = self._mapped_origin_application(body.get('salesChannel'))
         if missing_products:
@@ -574,26 +574,28 @@ class ProductecaQueue(models.Model):
         partner_id = self.env['res.partner'].sudo().search([('producteca_id', '=', body.get('contactId')), ('parent_id', '!=', False)], limit=1)
         if not partner_id:
             partner_id = self._create_producteca_partner(body.get('orderId'), queue_record.producteca_account_id)
-        cart_id = None
-        if body.get('cartId') != None: #Check if this is none on true data
-            cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId')).id
-            if not cart_id:
-                cart_id = self.env['sale.order.cart'].sudo().create({
-                    'producteca_id': body.get('cartId'),
-                }).id
-        return {
+        sale_order_dict = {
             'partner_id': partner_id.id,
             'order_line': sale_order_lines,
             'origin_platform': origin_platform if origin_platform else '',
             'producteca_id': body.get('id'),
             'company_id': account.company_id.id,
-            'cart_id': cart_id,
             'invoice_integration_producteca_id': body.get('invoiceIntegration', {}).get('integrationId'),
             'producteca_app_id': body.get('invoiceIntegration', {}).get('app'),
             'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id,
             'producteca_shipment_data': body.get('shipments'),
             'producteca_account_id': account.id,
         }
+        if body.get('cartId') != None: #Check if this is none on true data
+            cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId')).id
+            if not cart_id:
+                cart_id = self.env['sale.order.cart'].sudo().create({
+                    'producteca_id': body.get('cartId'),
+                }).id
+            sale_order_dict['cart_id'] = cart_id
+        if body.get('payments'):
+            sale_order_dict['producteca_payment_data'] = body.get('payments'),
+        return sale_order_dict
         
     def process_producteca_order_queue(self):
         queue_records = self.search([

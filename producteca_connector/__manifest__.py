@@ -19,19 +19,21 @@
 
     'data': [
         'data/producteca_menu.xml', 
-        'views/producteca_account_views.xml', 
-        'views/producteca_queue_views.xml',
-        'views/producteca_connections_views.xml',
+        'views/producteca.account.views.xml', 
+        'views/producteca.queue.views.xml',
+        'views/producteca.connections.views.xml',
         'data/ir.cron.xml',
-        'views/product_template.xml',
-        'views/stock_warehouse.xml',
+        'views/product.template.xml',
+        'views/stock.warehouse.xml',
         'wizards/import_producteca_product.xml',
         'wizards/import_producteca_saleorders.xml',
         'views/sale.order.xml',
         'views/sale.order.cart.xml',
         'security/ir.model.access.csv',
         'security/res.groups.xml',
-        'data/records.xml'
+        'data/records.xml',
+        'views/account.journal.xml',
+        'views/account.move.xml',
     ],
     'demo': [],
 }

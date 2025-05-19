@@ -18,6 +18,7 @@ class SaleOrder(models.Model):
     invoice_integration_producteca_id = fields.Char(string="Invoice Integration Producteca ID")
     producteca_app_id = fields.Integer(string="Producteca App ID")
     producteca_shipment_data = fields.Text(string="Información del envío")
+    producteca_payments_data = fields.Text(string="Información de los pagos")
     producteca_account_id = fields.Many2one('producteca.account', string='Producteca Account')
 
     def _obtain_carrier_id(self, carrier_name):
@@ -119,8 +120,7 @@ class SaleOrder(models.Model):
                 if vals_to_send_to_producteca:
                     self.env['producteca.queue'].sudo().create(vals_to_send_to_producteca)
         return _
-                    
-                        
+  
     def action_close_order(self):
         config = ConfigProducteca(
             token=self.producteca_account_id.producteca_account_id.bearer_token,
@@ -164,6 +164,7 @@ class SaleOrder(models.Model):
                             }
                         }
                     }
+                    invoice.producteca_payment_data = safe_eval(order.producteca_payments_data)
                     invoices_to_queue.append(invoice_dict)
         if invoices_to_queue:
             self.env['producteca.queue'].sudo().create(invoices_to_queue)
