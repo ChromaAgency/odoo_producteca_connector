@@ -15,7 +15,7 @@
     'category': 'Uncategorized',
     'version': '1.0',
 
-    'depends': ['base','stock','sale','sale_management','contacts','product_brand','website_sale', 'brand'],
+    'depends': ['base','stock','sale','sale_management','contacts','product_brand','website_sale', 'brand','l10n_ar'],
 
     'data': [
         'data/producteca_menu.xml', 

@@ -92,4 +92,26 @@
         <field name="active" eval="True"/>
     </record>
 
+    <record id="ir_cron_process_account_payments_create_queue" model="ir.cron">
+        <field name="name">Producteca: Procesar Cola de Creación de Pagos</field>
+        <field name="model_id" ref="model_producteca_queue"/>
+        <field name="state">code</field>
+        <field name="code">model.process_account_payments_create_queue()</field>
+        <field name="user_id" ref="base.user_root"/>
+        <field name="interval_number">15</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+
+    <record id="ir_cron_process_account_payments_update_queue" model="ir.cron">
+        <field name="name">Producteca: Procesar Cola de Actualización de Pagos</field>
+        <field name="model_id" ref="model_producteca_queue"/>
+        <field name="state">code</field>
+        <field name="code">model.process_account_payments_update_queue()</field>
+        <field name="user_id" ref="base.user_root"/>
+        <field name="interval_number">15</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+
 </odoo>

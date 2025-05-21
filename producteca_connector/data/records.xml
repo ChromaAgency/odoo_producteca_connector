@@ -2,5 +2,7 @@
 <odoo>
     <record id="producteca_contact" model="res.partner">
         <field name="name">Contacto Genérico de producteca</field>
+        <field name="l10n_ar_afip_responsibility_type_id" ref="l10n_ar.res_CF"/>
+        <field name='l10n_latam_identification_type_id' ref="l10n_ar.it_dni"/>
     </record>
 </odoo>

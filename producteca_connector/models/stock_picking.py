@@ -19,17 +19,17 @@ class StockPicking(models.Model):
         res = super(StockPicking, self).write(vals)
         for picking in self:
             if picking.producteca_shipment_id and any(field in vals for field in PRODUCTECA_FIELDS) and not self.env.context.get("update_from_confirm") :
-                producteca_content_dict = {"id": picking.producteca_shipment_id}                
+                producteca_content_dict = {"id": picking.producteca_shipment_id}
                 date_to_send = picking.date_done if picking.state == 'done' else picking.scheduled_date
                 producteca_content_dict["date"] = date_to_send.isoformat()
-                method_dict = {}                
+                method_dict = {}
                 if "carrier_tracking_ref" in vals:
                     method_dict["trackingNumber"] = picking.carrier_tracking_ref
                     method_dict["trackingUrl"] = ''                
                 if "carrier_id" in vals:
                     method_dict["courier"] = picking.carrier_id.name if picking.carrier_id else 'Unknown'                
                 if "state" in vals:
-                    method_dict["status"] = "Done" if picking.state == 'done' else "PickingPending"                
+                    method_dict["status"] = "Done" if picking.state == 'done' else "PickingPending"
                 if method_dict:
                     producteca_content_dict["method"] = method_dict
                 producteca_dict = {"shipments":[producteca_content_dict]}

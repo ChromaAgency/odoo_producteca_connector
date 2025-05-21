@@ -1,5 +1,5 @@
 from odoo import models, fields, api
-from ..utils.sales_orders.sales_orders import SaleOrder
+from ..utils.sales_orders.sales_orders import SaleOrder as ProductecaApiSaleOrder
 from ..utils.config.config import ConfigProducteca
 from odoo.exceptions import UserError
 from ..models.producteca_queue import ACCEPTATION_CODES
@@ -123,10 +123,10 @@ class SaleOrder(models.Model):
   
     def action_close_order(self):
         config = ConfigProducteca(
-            token=self.producteca_account_id.producteca_account_id.bearer_token,
-            api_key=self.producteca_account_id.producteca_account_id.api_key
+            token=self.producteca_account_id.bearer_token,
+            api_key=self.producteca_account_id.api_key
         )
-        response_status, _ = SaleOrder.close(config, int(self.producteca_id))
+        response_status, _ = ProductecaApiSaleOrder.close(config, int(self.producteca_id))
         if response_status not in ACCEPTATION_CODES:
             raise UserError("No se pudo cerrar la orden en Producteca")
 
@@ -151,6 +151,8 @@ class SaleOrder(models.Model):
         for order in self:
             if order.producteca_id:
                 for invoice in order.invoice_ids:
+                    invoice.producteca_order_id = order.producteca_id
+                    invoice.producteca_account_id = order.producteca_account_id
                     invoice_dict = {
                         "odoo_item_id":order.id,
                         "model": "account.move",
@@ -164,7 +166,9 @@ class SaleOrder(models.Model):
                             }
                         }
                     }
-                    invoice.producteca_payment_data = safe_eval(order.producteca_payments_data)
+                    if order.producteca_payments_data:
+                        invoice.producteca_payment_data = order.producteca_payments_data
+                        order.producteca_payments_data = False
                     invoices_to_queue.append(invoice_dict)
         if invoices_to_queue:
             self.env['producteca.queue'].sudo().create(invoices_to_queue)
@@ -183,7 +187,7 @@ class SaleOrder(models.Model):
                     "note": rec.note if 'note' in vals else None,
                     "tags": [tag.name for tag in rec.tag_ids] if 'tag_ids' in vals else None
                 }
-                sale_order = SaleOrder(config=config, **update_dict)
+                sale_order = ProductecaApiSaleOrder(config=config, **update_dict)
                 response_status, _ = sale_order.synchronize(config, sale_order)
                 if response_status not in ACCEPTATION_CODES:
                     raise UserError("No se pudo actualizar la orden en Producteca")

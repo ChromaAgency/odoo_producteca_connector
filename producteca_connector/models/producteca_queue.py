@@ -4,6 +4,7 @@ from ..utils.config.config import ConfigProducteca
 from ..utils.search.search_sale_orders import SearchSalesOrder, SearchSalesOrderParams
 from ..utils.sales_orders.sales_orders import SaleOrder
 from ..utils.shipments.shipment import Shipment
+from..utils.payments.payments import Payment
 import logging
 from datetime import datetime, timedelta
 from odoo.addons.base.models.res_users import Command
@@ -500,7 +501,7 @@ class ProductecaQueue(models.Model):
         has_delivery = body.get('hasAnyShipments', False)
         if has_delivery:
             delivery_price = body.get('totalShippingCost', 0)
-            carrier_product_name = f"Servicio de Entrega: {picking_data.get('method').get('courier')}"
+            carrier_product_name = f"Servicio de Entrega: {body.get('shipments')[0].get('method').get('courier')}"
             delivery_product = self.env['product.product'].sudo().search([('name', '=', carrier_product_name)])
             if delivery_product:
                 product_tax = delivery_product.taxes_id
@@ -594,7 +595,7 @@ class ProductecaQueue(models.Model):
                 }).id
             sale_order_dict['cart_id'] = cart_id
         if body.get('payments'):
-            sale_order_dict['producteca_payment_data'] = body.get('payments'),
+            sale_order_dict['producteca_payments_data'] = body.get('payments'),
         return sale_order_dict
         
     def process_producteca_order_queue(self):
@@ -645,25 +646,31 @@ class ProductecaQueue(models.Model):
         if draft_invoice_status_sale_orders:
             created_sale_orders = self.env['sale.order'].sudo().create(draft_invoice_status_sale_orders)
             created_sale_orders.with_context(update_from_confirm=True).action_confirm()
-            created_sale_orders._create_invoices()
+            for order in created_sale_orders:
+                order._create_invoices()
         if confirm_status_sale_orders:
             created_sale_orders = self.env['sale.order'].sudo().create(confirm_status_sale_orders)
             created_sale_orders.with_context(update_from_confirm=True).action_confirm()
-            moves = created_sale_orders._create_invoices()
-            for move in moves:
-                move.action_post()
+            for order in created_sale_orders:
+                moves = order._create_invoices()
+                for move in moves:
+                    move.action_post()
 
     def _create_producteca_partner(self, producteca_id, account):
         config = ConfigProducteca(
                 token=account.bearer_token,
                 api_key=account.api_key
             )
-        _logger.info("producteca id %s", producteca_id)
         sale_order = SaleOrder.get(config, producteca_id)
         contact = sale_order.contact
         if not contact:
             contact_ref = self.env.ref('producteca_connector.producteca_contact')
             return contact_ref
+        _logger.info('contact_id %s', contact.id)
+        partner = self.env['res.partner'].sudo().search([('producteca_id', '=', str(contact.id))], limit=1)
+        _logger.info(f"Creating partner {partner}")
+        if partner:
+            return partner
         company = self.env['res.partner'].sudo().search([('vat', '=', contact.billingInfo.docNumber), ('parent_id', '=', False)], limit=1)
         if not company:
             identification = self.env['l10n_latam.identification.type'].sudo().search([('name', '=', contact.billingInfo.docType)], limit=1)
@@ -683,7 +690,7 @@ class ProductecaQueue(models.Model):
             company = self.env['res.partner'].sudo().create(company_info)
         contact_info = {
             'name': contact.name,
-            'producteca_id': producteca_id,
+            'producteca_id': str(contact.id),
             'email': contact.mail,
             'phone': contact.phoneNumber,
             'parent_id': company.id
@@ -825,6 +832,54 @@ class ProductecaQueue(models.Model):
             )
             shipment = Shipment(config=config, **producteca_body)
             response, response_status = Shipment.create(config, queue_record.odoo_item_id, shipment)
+            queue_record.producteca_response = response
+            queue_record.response_status = response_status
+            if response_status in ACCEPTATION_CODES:
+                queue_record.active = False
+    
+    #### Payments ####
+
+    ### Process Account payment create Queue ###
+
+    def process_account_payments_create_queue(self):
+        queue_records = self.search([
+            ('producteca_method', '=', 'create'),
+            ('active', '=', True),
+            ('model', '=','account.payment')
+        ])
+        if not queue_records:
+            return False
+        for queue_record in queue_records:
+            producteca_body = safe_eval(queue_record.producteca_body)
+            config = ConfigProducteca(
+                token=queue_record.producteca_account_id.bearer_token,
+                api_key=queue_record.producteca_account_id.api_key
+            )
+            sale_order_id = int(producteca_body.pop('producteca_sale_order_id'))
+            payment = Payment(config=config, **producteca_body)
+            response, response_status = Payment.create(config, sale_order_id, payment)
+            queue_record.producteca_response = response
+            queue_record.response_status = response_status
+            if response_status in ACCEPTATION_CODES:
+                queue_record.active = False
+        
+    def process_account_payments_update_queue(self):
+        queue_records = self.search([
+            ('producteca_method', '=', 'update'),
+            ('active', '=', True),
+            ('model', '=','account.payment')
+        ])
+        if not queue_records:
+            return False
+        for queue_record in queue_records:
+            producteca_body = safe_eval(queue_record.producteca_body)
+            config = ConfigProducteca(
+                token=queue_record.producteca_account_id.bearer_token,
+                api_key=queue_record.producteca_account_id.api_key
+            )
+            sale_order_id = int(producteca_body.pop('producteca_sale_order_id'))
+            payment = Payment(config=config, **producteca_body)
+            response, response_status = Payment.update(config, sale_order_id, queue_record.odoo_item_id, payment)
             queue_record.producteca_response = response
             queue_record.response_status = response_status
             if response_status in ACCEPTATION_CODES:

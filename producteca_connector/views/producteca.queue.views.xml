@@ -9,6 +9,7 @@
                 <field name="active"/>
                 <field name="producteca_account_id"/>
                 <field name="producteca_method"/>
+                <field name="response_status"/>
                 <field name="model"/>
                 <field name="producteca_response"/>
             </list>
@@ -44,10 +45,34 @@
         </field>
     </record>
 
+    <record id="view_producteca_queue_search" model="ir.ui.view">
+        <field name="name">producteca.queue.search</field>
+        <field name="model">producteca.queue</field>
+        <field name="arch" type="xml">
+            <search string="Buscar en Cola de Producteca">
+                <field name="producteca_account_id"/>
+                <field name="model"/>
+                <field name="producteca_method"/>
+                <field name="response_status"/>
+                <filter string="Activos" name="filter_active" domain="[('active', '=', True)]"/>
+                <filter string="Archivado" name="filter_archived" domain="[('active', '=', False)]"/>
+                <separator/>
+                <group expand="0" string="Agrupar por...">
+                    <filter string="Cuenta Producteca" name="group_by_account" context="{'group_by': 'producteca_account_id'}"/>
+                    <filter string="Modelo" name="group_by_model" context="{'group_by': 'model'}"/>
+                    <filter string="Método" name="group_by_method" context="{'group_by': 'producteca_method'}"/>
+                    <filter string="Estado Respuesta" name="group_by_status" context="{'group_by': 'response_status'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <record id="action_producteca_queue" model="ir.actions.act_window">
         <field name="name">Producteca Queue</field>
         <field name="res_model">producteca.queue</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_producteca_queue_search"/>
+        <!-- <field name="context">{'search_default_filter_active': 1}</field> -->
         <field name="help" type="html">
             <p class="oe_view_nocontent_create">
                 Click para crear una nueva entrada en la cola de Producteca

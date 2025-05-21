@@ -5,12 +5,12 @@ from ..config.config import ConfigProducteca
 
 
 class PaymentCard(BaseModel):
-    paymentNetwork: str
-    firstSixDigits: int
-    lastFourDigits: int
-    cardholderIdentificationNumber: str
-    cardholderIdentificationType: str
-    cardholderName: str
+    paymentNetwork: Optional[str] = None
+    firstSixDigits: Optional[int] = None
+    lastFourDigits: Optional[int] = None
+    cardholderIdentificationNumber: Optional[str] = None
+    cardholderIdentificationType: Optional[str] = None
+    cardholderName: Optional[str] = None
 
 
 class PaymentIntegration(BaseModel):
@@ -21,16 +21,16 @@ class PaymentIntegration(BaseModel):
 class Payment(BaseModel):
     date: str
     amount: float
-    couponAmount: float
+    couponAmount: Optional[float] = None
     status: str
     method: str
-    integration: PaymentIntegration
-    transactionFee: float
-    installments: int
+    integration: Optional[PaymentIntegration] = None
+    transactionFee: Optional[float] = None
+    installments: Optional[int] = None
     card: Optional[PaymentCard] = None
     notes: Optional[str] = None
     hasCancelableStatus: bool
-    id: int
+    id: Optional[int] = None
 
     @classmethod
     def create(cls, config: ConfigProducteca, sale_order_id: int, payload: "Payment") -> "Payment":
