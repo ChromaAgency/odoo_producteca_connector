@@ -153,6 +153,10 @@ class SaleOrder(models.Model):
                 for invoice in order.invoice_ids:
                     invoice.producteca_order_id = order.producteca_id
                     invoice.producteca_account_id = order.producteca_account_id
+                    
+                    if not invoice.access_token:
+                        invoice._portal_ensure_token()
+                    
                     invoice_dict = {
                         "odoo_item_id":order.id,
                         "model": "account.move",

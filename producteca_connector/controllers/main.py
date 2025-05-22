@@ -2,16 +2,21 @@ from odoo.addons.web.controllers.binary import Binary
 from odoo.http import request
 from odoo import http
 import base64
+import logging
 
-class ProductecaImageController(Binary):
-    @http.route(['/producteca/image/<int:product_id>'], type='http', auth="none", csrf=False)
+_logger = logging.getLogger(__name__)
+
+class ProductecaImageController(http.Controller):
+    @http.route(['/producteca/image/<int:product_id>'], type='http', auth="public", csrf=False, cors="*")
     def get_product_image(self, product_id, **kw):
         try:
             product = request.env['product.product'].sudo().browse(product_id).exists()
             if not product:
+                _logger.info(f"Producto no encontrado para la imagen: ID {product_id}")
                 return request.not_found()
                 
             if not product.image_1920:
+                _logger.info(f"Imagen no disponible para el producto: ID {product_id}")
                 return request.not_found()
                 
             image_data = base64.b64decode(product.image_1920)
@@ -31,13 +36,58 @@ class ProductecaImageController(Binary):
                 ]
             )
         except Exception as e:
-            return request.not_found()
+            _logger.error(f"Error al obtener imagen del producto ID {product_id}: {str(e)}", exc_info=True)
+            return request.not_found("Error al procesar la imagen.")
 
-class ProductecaIInvoiceController(Binary):
+class ProductecaIInvoiceController(http.Controller):
 
-    @http.route(['/facturas/<invoice_id>/<invoice_access_token>/factura_producteca.pdf'], cors="*", type="http", auth="public") 
-    def get_invoice_pdf(self, invoice_id, invoice_access_token): 
-        invoice = request.env['account.move'].sudo().search([('id', '=', invoice_id), ('access_token', '=', invoice_access_token)], limit=1) 
-        if not invoice: 
-            return request.not_found()
-        return http.Response(invoice.invoice_pdf_report_file, headers={'Content-Type': 'application/pdf'})
+    @http.route(['/facturas/<int:invoice_id>/<string:invoice_access_token>/factura_producteca.pdf'], cors="*", type="http", auth="public") 
+    def get_invoice_pdf(self, invoice_id, invoice_access_token, **kwargs):
+        try:
+            invoice = request.env['account.move'].sudo().search([('id', '=', invoice_id), ('access_token', '=', invoice_access_token)], limit=1) 
+            
+            if not invoice: 
+                _logger.warning(f"Factura no encontrada o token de acceso inválido: ID {invoice_id}")
+                return request.not_found("Factura no encontrada o token de acceso inválido.")
+
+            pdf_data = False
+            pdf_content_base64 = invoice.invoice_pdf_report_file
+
+            if pdf_content_base64:
+                try:
+                    pdf_data = base64.b64decode(pdf_content_base64)
+                except Exception as e:
+                    _logger.error(f"Error al decodificar base64 para el PDF de la factura ID {invoice_id} desde el campo: {str(e)}", exc_info=True)
+                    pdf_data = False
+            
+            if not pdf_data:
+                _logger.info(f"El contenido del PDF (invoice_pdf_report_file) para la factura ID {invoice_id} está vacío o no se pudo decodificar. Intentando generar el informe.")
+                try:
+                    report_name_technical = 'account.account_invoices'
+
+                    generated_pdf_content, content_type = request.env['ir.actions.report'].sudo()._render_qweb_pdf(report_name_technical, [invoice.id])
+                    
+                    if not generated_pdf_content:
+                        _logger.error(f"No se pudo generar el PDF para la factura {invoice_id} bajo demanda.")
+                        return request.not_found("No se pudo generar el PDF para esta factura.")
+                    
+                    pdf_data = generated_pdf_content
+                    
+                except Exception as e:
+                    _logger.error(f"Error al generar el PDF de la factura ID {invoice_id} bajo demanda: {str(e)}", exc_info=True)
+                    return request.make_response("Error al generar el PDF de la factura.", status=500)
+
+            if not pdf_data:
+                _logger.error(f"A pesar de los intentos, no se pudo obtener el PDF para la factura ID {invoice_id}.")
+                return request.not_found("El contenido del PDF para esta factura no está disponible.")
+
+            headers = [
+                ('Content-Type', 'application/pdf'),
+                ('Content-Disposition', f'inline; filename="factura_{invoice.name or invoice_id}.pdf"'),
+                ('Content-Length', len(pdf_data))
+            ]
+            return request.make_response(pdf_data, headers=headers)
+
+        except Exception as e:
+            _logger.error(f"Error general al obtener PDF para factura ID {invoice_id}: {str(e)}", exc_info=True)
+            return request.make_response("Error interno del servidor al intentar obtener el PDF de la factura.", status=500)
