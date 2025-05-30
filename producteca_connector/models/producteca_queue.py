@@ -572,7 +572,11 @@ class ProductecaQueue(models.Model):
         if missing_products:
             self._create_producteca_queue_for_missing_products(queue_record, account, missing_products)
             return False
-        partner_id = self.env['res.partner'].sudo().search([('producteca_id', '=', body.get('contactId')), ('parent_id', '!=', False)], limit=1)
+        partner_id = None
+        if not body.get('contactId'):
+            partner_id = self.env.ref('producteca_connector.producteca_contact')
+        if not partner_id:
+            partner_id = self.env['res.partner'].sudo().search([('producteca_id', '=', body.get('contactId')), ('parent_id', '!=', False)], limit=1)
         if not partner_id:
             partner_id = self._create_producteca_partner(body.get('orderId'), queue_record.producteca_account_id)
         sale_order_dict = {
