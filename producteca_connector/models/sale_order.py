@@ -56,15 +56,17 @@ class SaleOrder(models.Model):
                 line.quantity = products.get(line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id)
             picking.scheduled_date = parsed_date
             picking.carrier_tracking_ref = picking_data.get('method').get('trackingNumber')
-        picking.producteca_integration_id = picking_data.get('integration').get('integrationId')
-        picking.carrier_id = self._obtain_carrier_id(picking_data.get('method').get('courier'))
+        if picking_data.get('integration'):
+            picking.producteca_shipment_id = picking_data.get('integration').get('integrationId')
+        if picking_data.get('method'):
+            picking.carrier_id = self._obtain_carrier_id(picking_data.get('method').get('courier'))
     
     def _create_producteca_dict_for_picking(self, picking):
         date_value = picking.date_done if picking.state == 'done' else picking.scheduled_date
         content_dict = {
             "date": date_value.isoformat() if date_value else None,
             "method": {
-                "trackingNumber": picking.carrier_tracking_ref,
+                "trackingNumber": picking.carrier_tracking_ref if picking.carrier_tracking_ref else '',
                 "trackingUrl": '',
                 "courier": picking.carrier_id.name if picking.carrier_id else 'Unknown',
                 "status": "Done" if picking.state == 'done' else "PickingPending",
@@ -80,10 +82,7 @@ class SaleOrder(models.Model):
         ] 
         if product_dict:
             content_dict.update({"products": product_dict})
-        producteca_dict = {
-            "shipments" : [content_dict]
-        }
-        return producteca_dict
+        return content_dict
 
     def action_confirm(self):
         _ = super().action_confirm()

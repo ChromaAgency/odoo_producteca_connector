@@ -635,7 +635,6 @@ class ProductecaQueue(models.Model):
 
         for queue_record in queue_records:
             body = safe_eval(queue_record.producteca_body)
-            _logger.info(body)
             order_id = body.get('id')
             if not order_id:
                 queue_record.internal_process_error_msg = "No se encontro el id de la orden"
@@ -684,9 +683,7 @@ class ProductecaQueue(models.Model):
         if not contact:
             contact_ref = self.env.ref('producteca_connector.producteca_contact')
             return contact_ref
-        _logger.info('contact_id %s', contact.id)
         partner = self.env['res.partner'].sudo().search([('producteca_id', '=', str(contact.id))], limit=1)
-        _logger.info(f"Creating partner {partner}")
         if partner:
             return partner
         company = self.env['res.partner'].sudo().search([('vat', '=', contact.billingInfo.docNumber), ('parent_id', '=', False)], limit=1)
@@ -848,7 +845,7 @@ class ProductecaQueue(models.Model):
                 token=queue_record.producteca_account_id.bearer_token,
                 api_key=queue_record.producteca_account_id.api_key
             )
-            shipment = Shipment(config=config, **producteca_body)
+            shipment = Shipment(config=config, **producteca_body) 
             response, response_status = Shipment.create(config, queue_record.odoo_item_id, shipment)
             queue_record.producteca_response = response
             queue_record.response_status = response_status
