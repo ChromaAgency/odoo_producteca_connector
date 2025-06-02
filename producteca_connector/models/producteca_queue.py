@@ -6,6 +6,7 @@ from ..utils.sales_orders.sales_orders import SaleOrder
 from ..utils.shipments.shipment import Shipment
 from..utils.payments.payments import Payment
 import logging
+import json
 from datetime import datetime, timedelta
 from odoo.addons.base.models.res_users import Command
 from urllib.parse import quote
@@ -404,10 +405,19 @@ class ProductecaQueue(models.Model):
             )            
             saleorder_response, response_status = SearchSalesOrder.search_saleorder(config=config, params=params)
             if response_status in ACCEPTATION_CODES:
-                for saleorder in saleorder_response.get('results', []):
+                for result in saleorder_response.get('results', []):
+                    sale_order_id = result.get('orderId', False)
+                    if not sale_order_id:
+                        continue
+                    config = ConfigProducteca(
+                    token=account.bearer_token,
+                    api_key=account.api_key
+                    )
+                    sale_order_obj = SaleOrder.get(config, sale_order_id)
+                    sale_order_dict = sale_order_obj.model_dump()
                     queue_records_create.append({
                         'producteca_method': 'get',
-                        'producteca_body': saleorder,
+                        'producteca_body': sale_order_dict,
                         'producteca_account_id': account.id,
                         'model': 'sale.order'
                 })
@@ -585,14 +595,17 @@ class ProductecaQueue(models.Model):
             'origin_platform': origin_platform if origin_platform else '',
             'producteca_id': body.get('id'),
             'company_id': account.company_id.id,
-            'invoice_integration_producteca_id': body.get('invoiceIntegration', {}).get('integrationId'),
-            'producteca_app_id': body.get('invoiceIntegration', {}).get('app'),
             'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id,
             'producteca_shipment_data': body.get('shipments'),
             'producteca_account_id': account.id,
         }
+        if body.get('invoiceIntegration', False):
+            sale_order_dict.update({
+                'invoice_integration_producteca_id': body.get('invoiceIntegration', {}).get('integrationId'),
+                'producteca_app_id': body.get('invoiceIntegration', {}).get('app'),                
+            })
         if body.get('cartId') != None: #Check if this is none on true data
-            cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId')).id
+            cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId'))[0].id
             if not cart_id:
                 cart_id = self.env['sale.order.cart'].sudo().create({
                     'producteca_id': body.get('cartId'),
@@ -622,6 +635,7 @@ class ProductecaQueue(models.Model):
 
         for queue_record in queue_records:
             body = safe_eval(queue_record.producteca_body)
+            _logger.info(body)
             order_id = body.get('id')
             if not order_id:
                 queue_record.internal_process_error_msg = "No se encontro el id de la orden"

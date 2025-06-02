@@ -60,8 +60,9 @@ class SaleOrder(models.Model):
         picking.carrier_id = self._obtain_carrier_id(picking_data.get('method').get('courier'))
     
     def _create_producteca_dict_for_picking(self, picking):
+        date_value = picking.date_done if picking.state == 'done' else picking.scheduled_date
         content_dict = {
-            "date": picking.date_done if picking.state == 'done' else picking.scheduled_date,
+            "date": date_value.isoformat() if date_value else None,
             "method": {
                 "trackingNumber": picking.carrier_tracking_ref,
                 "trackingUrl": '',
@@ -119,6 +120,8 @@ class SaleOrder(models.Model):
                 
                 if vals_to_send_to_producteca:
                     self.env['producteca.queue'].sudo().create(vals_to_send_to_producteca)
+            if rec.producteca_id and not rec.producteca_shipment_data:
+                rec.action_close_order()
         return _
   
     def action_close_order(self):
@@ -165,8 +168,8 @@ class SaleOrder(models.Model):
                             "id": int(order.producteca_id),
                             "invoiceIntegration": {
                                 "documentUrl": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/facturas/{invoice.id}/{invoice.access_token}/factura_producteca.pdf",
-                                "integrationId": order.invoice_integration_producteca_id,
-                                "app": order.producteca_app_id,
+                                "integrationId": invoice.name,
+                                "app": 249,
                             }
                         }
                     }
