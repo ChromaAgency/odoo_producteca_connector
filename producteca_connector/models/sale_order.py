@@ -162,7 +162,7 @@ class SaleOrder(models.Model):
                     invoice_dict = {
                         "odoo_item_id":order.id,
                         "model": "account.move",
-                        "producteca_account_id": order.producteca_account_id.id,
+                        "producteca_account_id": invoice.producteca_account_id.id,
                         "producteca_method": "update",
                         "producteca_body":{
                             "id": int(order.producteca_id),

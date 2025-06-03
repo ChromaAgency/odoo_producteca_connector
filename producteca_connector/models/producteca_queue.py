@@ -793,7 +793,7 @@ class ProductecaQueue(models.Model):
         if not queue_records:
             return False
         for queue_record in queue_records:
-            account = self.env['producteca.accounts'].sudo().browse(queue_record.producteca_account_id.id)
+            account = self.env['producteca.account'].sudo().browse(queue_record.producteca_account_id.id)
             producteca_body = safe_eval(queue_record.producteca_body)
             if account:
                 config = ConfigProducteca(
