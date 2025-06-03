@@ -512,7 +512,7 @@ class ProductecaQueue(models.Model):
         if has_delivery:
             delivery_price = body.get('totalShippingCost', 0)
             carrier_product_name = f"Servicio de Entrega: {body.get('shipments')[0].get('method').get('courier')}"
-            delivery_product = self.env['product.product'].sudo().search([('name', '=', carrier_product_name)])
+            delivery_product = self.env['product.product'].sudo().search([('name', '=', carrier_product_name)], limit=1)
             if delivery_product:
                 product_tax = delivery_product.taxes_id
                 if product_tax:
@@ -792,11 +792,9 @@ class ProductecaQueue(models.Model):
         ])
         if not queue_records:
             return False
-        connections = self.env['producteca.connections'].sudo().search([('product_id', '=', False), ('producteca_id', 'in', [int(record.odoo_item_id) for record in queue_records])])
-        connection_dict = {connection.producteca_id: connection.producteca_account_id for connection in connections}
         for queue_record in queue_records:
+            account = self.env['producteca.accounts'].sudo().browse(queue_record.producteca_account_id.id)
             producteca_body = safe_eval(queue_record.producteca_body)
-            account = connection_dict.get(int(producteca_body.get('id')))
             if account:
                 config = ConfigProducteca(
                     token=account.bearer_token,

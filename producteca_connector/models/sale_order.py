@@ -162,12 +162,13 @@ class SaleOrder(models.Model):
                     invoice_dict = {
                         "odoo_item_id":order.id,
                         "model": "account.move",
+                        "producteca_account_id": order.producteca_account_id.id,
                         "producteca_method": "update",
                         "producteca_body":{
                             "id": int(order.producteca_id),
                             "invoiceIntegration": {
                                 "documentUrl": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/facturas/{invoice.id}/{invoice.access_token}/factura_producteca.pdf",
-                                "integrationId": invoice.name,
+                                "integrationId": invoice.name if invoice.name else invoice.id,
                                 "app": 249,
                             }
                         }
