@@ -29,9 +29,9 @@ class ShipmentIntegration(BaseModel):
 
 
 class Shipment(BaseModel):
-    date: str
-    products: List[ShipmentProduct]
-    method: ShipmentMethod
+    date: Optional[str] = None
+    products: Optional[List[ShipmentProduct]] = None
+    method: Optional[ShipmentMethod] = None
     integration: Optional[ShipmentIntegration] = None
 
     @classmethod

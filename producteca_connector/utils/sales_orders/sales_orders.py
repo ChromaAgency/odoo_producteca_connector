@@ -250,4 +250,6 @@ class SaleOrder(BaseModel):
         endpoint = f'salesorders/{sale_order_id}/invoiceIntegration'
         url = config.get_endpoint(endpoint)
         response = requests.put(url, headers=config.headers, data=payload.model_dump_json(exclude_none=True))
+        if response.status_code == 200:
+            return response.status_code, {}
         return response.status_code, response.json()

@@ -27,6 +27,7 @@
                         <field name="producteca_account_id"/>
                         <field name="producteca_method"/>
                         <field name="model"/>
+                        <field name="odoo_item_id"/>
                     </group>
                     <notebook>
                         <page string="Contenido">

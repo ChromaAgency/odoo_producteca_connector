@@ -168,7 +168,7 @@ class SaleOrder(models.Model):
                             "id": int(order.producteca_id),
                             "invoiceIntegration": {
                                 "documentUrl": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/facturas/{invoice.id}/{invoice.access_token}/factura_producteca.pdf",
-                                "integrationId": invoice.name if invoice.name else invoice.id,
+                                "integrationId": str(invoice.name) if invoice.name else str(invoice.id),
                                 "app": 249,
                             }
                         }

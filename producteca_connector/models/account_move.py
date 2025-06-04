@@ -40,4 +40,10 @@ class AccountMove(models.Model):
                         payment_register.action_create_payments()
                         move.matched_payment_ids.sorted('create_date', reverse=True)[:1].write({'producteca_payment_id': payment['id']})
                         move.producteca_payment_state = 'approved'
+            self.env['producteca.queue'].create({
+                    'producteca_method': 'update',
+                    'producteca_body': {"id": move.producteca_order_id, "invoiceIntegration":{"decreaseStock": True}},
+                    'model':'account.move',
+                    'producteca_account_id': move.producteca_account_id.id,
+                })
         return result
