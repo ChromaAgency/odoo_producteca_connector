@@ -13,7 +13,7 @@ class AccountMove(models.Model):
     ], string='Estado del pago', default='pending')
     producteca_order_id = fields.Char(string='ID de la orden de producteca')
     producteca_account_id = fields.Many2one('producteca.account', string='Producteca Account')
-
+    producteca_invoice_already_exists = fields.Boolean(string='Factura de producteca ya existe')
     producteca_payment_data = fields.Text(string='Datos del pago de producteca')
 
     def action_post(self):
@@ -40,10 +40,10 @@ class AccountMove(models.Model):
                         payment_register.action_create_payments()
                         move.matched_payment_ids.sorted('create_date', reverse=True)[:1].write({'producteca_payment_id': payment['id']})
                         move.producteca_payment_state = 'approved'
-            self.env['producteca.queue'].create({
-                    'producteca_method': 'update',
-                    'producteca_body': {"id": move.producteca_order_id, "invoiceIntegration":{"decreaseStock": True}},
-                    'model':'account.move',
-                    'producteca_account_id': move.producteca_account_id.id,
-                })
+                        self.env['producteca.queue'].create({
+                                'producteca_method': 'update' if move.producteca_invoice_already_exists else 'create',
+                                'producteca_body': {"id": move.producteca_order_id, "invoiceIntegration":{"decreaseStock": True}},
+                                'model':'account.move',
+                                'producteca_account_id': move.producteca_account_id.id,
+                            })
         return result

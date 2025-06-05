@@ -20,6 +20,7 @@ class SaleOrder(models.Model):
     producteca_shipment_data = fields.Text(string="Información del envío")
     producteca_payments_data = fields.Text(string="Información de los pagos")
     producteca_account_id = fields.Many2one('producteca.account', string='Producteca Account')
+    has_existing_producteca_invoice = fields.Boolean(string="Invoice already exists")
 
     def _obtain_carrier_id(self, carrier_name):
         carrier = self.env['delivery.carrier'].search([('name', '=', carrier_name)]).id
@@ -155,6 +156,7 @@ class SaleOrder(models.Model):
                 for invoice in order.invoice_ids:
                     invoice.producteca_order_id = order.producteca_id
                     invoice.producteca_account_id = order.producteca_account_id
+                    invoice.producteca_invoice_already_exists = order.has_existing_producteca_invoice
                     
                     if not invoice.access_token:
                         invoice._portal_ensure_token()
@@ -163,7 +165,7 @@ class SaleOrder(models.Model):
                         "odoo_item_id":order.id,
                         "model": "account.move",
                         "producteca_account_id": invoice.producteca_account_id.id,
-                        "producteca_method": "update",
+                        "producteca_method": "update" if invoice.producteca_invoice_already_exists else "create",
                         "producteca_body":{
                             "id": int(order.producteca_id),
                             "invoiceIntegration": {

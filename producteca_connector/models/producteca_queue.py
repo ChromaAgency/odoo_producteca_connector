@@ -601,10 +601,11 @@ class ProductecaQueue(models.Model):
         }
         if body.get('invoiceIntegration', False):
             sale_order_dict.update({
+                'has_existing_producteca_invoice': True,
                 'invoice_integration_producteca_id': body.get('invoiceIntegration', {}).get('integrationId'),
                 'producteca_app_id': body.get('invoiceIntegration', {}).get('app'),                
             })
-        if body.get('cartId') != None: #Check if this is none on true data
+        if body.get('cartId') != None:
             cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId'))[0].id
             if not cart_id:
                 cart_id = self.env['sale.order.cart'].sudo().create({
@@ -805,6 +806,29 @@ class ProductecaQueue(models.Model):
                     queue_record.active = False
                 else:
                     queue_record.internal_process_error_msg = response
+
+    def process_account_move_queue_create(self):
+        queue_records = self.search([
+            ('producteca_method', '=', 'create'),
+            ('active', '=', True),
+            ('model', '=', 'account.move')
+        ])
+        if not queue_records:
+            return False
+        for queue_record in queue_records:
+            account = self.env['producteca.account'].sudo().browse(queue_record.producteca_account_id.id)
+            producteca_body = safe_eval(queue_record.producteca_body)
+            if account:
+                config = ConfigProducteca(
+                    token=account.bearer_token,
+                    api_key=account.api_key
+                )
+                response, response_status = SaleOrder.synchronize(config, SaleOrder(**producteca_body))
+                if response_status in ACCEPTATION_CODES:
+                    queue_record.active = False
+                else:
+                    queue_record.internal_process_error_msg = response
+
 
     ### Update Stock Picking Queue ###
     
