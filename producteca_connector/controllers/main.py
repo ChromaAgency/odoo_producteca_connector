@@ -7,6 +7,12 @@ import logging
 _logger = logging.getLogger(__name__)
 
 class ProductecaImageController(http.Controller):
+
+    @http.route(['/producteca/webhooks'], type='http', auth='none', methods=['POST'], csrf=False)
+    def webhooks(self, **post):
+        _logger.info(f"Webhook recibido: {post}")
+        return request.make_response("OK")
+
     @http.route(['/producteca/image/<int:product_id>'], type='http', auth="public", csrf=False, cors="*")
     def get_product_image(self, product_id, **kw):
         try:
