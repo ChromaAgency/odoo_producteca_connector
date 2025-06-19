@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_producteca_account_user,producteca.account.user,model_producteca_account,base.group_user,1,0,0,0
+access_producteca_account_manager,producteca.account.manager,model_producteca_account,base.group_erp_manager,1,1,1,1
+access_producteca_connections_user,producteca.connections.user,model_producteca_connections,base.group_user,1,0,0,0
+access_producteca_connections_manager,producteca.connections.manager,model_producteca_connections,base.group_erp_manager,1,1,1,1
+access_producteca_queue_user,producteca.queue.user,model_producteca_queue,base.group_user,1,0,0,0
+access_producteca_queue_manager,producteca.queue.manager,model_producteca_queue,base.group_erp_manager,1,1,1,1
+access_producteca_products_wizard,producteca.products.wizard,model_producteca_products_wizard,base.group_user,1,1,1,1
+access_sale_order_cart_user,sale.order.cart.user,model_sale_order_cart,base.group_user,1,0,0,0
+access_sale_order_cart_manager,sale.order.cart.manager,model_sale_order_cart,base.group_erp_manager,1,1,1,1
+access_producteca_saleorders_wizard,producteca.saleorders.wizard,model_producteca_saleorders_wizard,base.group_user,1,1,1,1
