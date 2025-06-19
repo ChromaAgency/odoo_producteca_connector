@@ -606,12 +606,13 @@ class ProductecaQueue(models.Model):
                 'producteca_app_id': body.get('invoiceIntegration', {}).get('app'),                
             })
         if body.get('cartId') != None:
-            cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId'))[0].id
+            cart_id = carts.filtered(lambda x: x.producteca_id == body.get('cartId'))
             if not cart_id:
                 cart_id = self.env['sale.order.cart'].sudo().create({
                     'producteca_id': body.get('cartId'),
-                }).id
-            sale_order_dict['cart_id'] = cart_id
+                })
+            if cart_id:
+                sale_order_dict['cart_id'] = cart_id[:1].id
         if body.get('payments'):
             sale_order_dict['producteca_payments_data'] = body.get('payments'),
         return sale_order_dict
