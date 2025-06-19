@@ -10,7 +10,8 @@ class ProductecaImageController(http.Controller):
 
     @http.route(['/producteca/webhooks'], type='http', auth='none', methods=['POST'], csrf=False)
     def webhooks(self, **post):
-        _logger.info(f"Webhook recibido: {post}")
+        json_body = request.httprequest.data
+        _logger.info(f"Webhook recibido: {post}, {json_body}")
         return request.make_response("OK")
 
     @http.route(['/producteca/image/<int:product_id>'], type='http', auth="public", csrf=False, cors="*")
