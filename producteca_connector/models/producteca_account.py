@@ -10,6 +10,7 @@ class ProductecaAccountConfig(models.Model):
     account_name = fields.Char(string='Account Name', required=True)
     api_key = fields.Char(string='API Key', required=True)
     bearer_token = fields.Char(string='Bearer Token', required=True)
+    producteca_company_id = fields.Char(string='Producteca ID')
 
     company_id = fields.Many2one('res.company', string='Company')
     imported_sale_action = fields.Selection([

@@ -33,6 +33,7 @@
                                 <field name="default_warehouse_id"/>
                                 <field name="warehouse_ids" widget="many2many_tags"/>
                                 <field name="pricelist_to_sync"/>
+                                <field name="producteca_company_id"/>
                             </group>
                         </page>
                         <page string="Opciones">

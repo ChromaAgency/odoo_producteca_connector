@@ -36,4 +36,6 @@
         'views/account.move.xml',
     ],
     'demo': [],
+    'application': True,
+    'installable': True,
 }
