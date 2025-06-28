@@ -11,7 +11,7 @@
 
     'author': "Chroma",
     'website': "https://portal.chroma.agency/",
-    "license": "OPL-1",
+    "license": "AGPL-3",
 
     'category': 'Uncategorized',
     'version': '1.0',
