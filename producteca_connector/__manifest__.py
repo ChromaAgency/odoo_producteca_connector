@@ -11,6 +11,7 @@
 
     'author': "Chroma",
     'website': "https://portal.chroma.agency/",
+    "license": "OPL-1",
 
     'category': 'Uncategorized',
     'version': '1.0',
@@ -38,4 +39,6 @@
     'demo': [],
     'application': True,
     'installable': True,
+    'price': 249.99,
+    'currency': 'USD',
 }
