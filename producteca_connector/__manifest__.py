@@ -41,4 +41,7 @@
     'installable': True,
     'price': 249.99,
     'currency': 'USD',
+    'images': ['static/description/1.png', 'static/description/2.png'],
+    'support': 'odooapps@chroma.agency',
+    'live_test_url': 'https://portal.chroma.agency',
 }
