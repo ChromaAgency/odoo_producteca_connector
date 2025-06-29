@@ -356,11 +356,11 @@ class ProductecaQueue(models.Model):
                 token=queue_record.producteca_account_id.bearer_token,
                 api_key=queue_record.producteca_account_id.api_key
             )
-            product = Product(  
+            product = Product(
                 config=config,
                 create_if_it_doesnt_exist=queue_record.producteca_account_id.create_if_dosnt_exist
             )
-            product_response, response_status = product.get(config=config, product_id = queue_record.producteca_body)
+            product_response, response_status = product.get(config=config, product_id=queue_record.producteca_body)
             queue_record.producteca_response = product_response
             queue_record.response_status = response_status
             if response_status in ACCEPTATION_CODES:
@@ -407,6 +407,7 @@ class ProductecaQueue(models.Model):
             if response_status in ACCEPTATION_CODES:
                 for result in saleorder_response.get('results', []):
                     sale_order_id = result.get('orderId', False)
+                    _logger.info(sale_order_id)
                     if not sale_order_id:
                         continue
                     config = ConfigProducteca(
