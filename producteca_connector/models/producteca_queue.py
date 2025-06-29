@@ -1,10 +1,10 @@
 from odoo import models, fields, api
-from ..utils.products.products import Product
-from ..utils.config.config import ConfigProducteca
-from ..utils.search.search_sale_orders import SearchSalesOrder, SearchSalesOrderParams
-from ..utils.sales_orders.sales_orders import SaleOrder
-from ..utils.shipments.shipment import Shipment
-from..utils.payments.payments import Payment
+from producteca.products.products import Product
+from producteca.config.config import ConfigProducteca
+from producteca.search.search_sale_orders import SearchSalesOrder, SearchSalesOrderParams
+from producteca.sales_orders.sales_orders import SaleOrder
+from producteca.shipments.shipment import Shipment
+from producteca.payments.payments import Payment
 import logging
 import json
 from datetime import datetime, timedelta

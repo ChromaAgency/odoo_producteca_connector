@@ -4,9 +4,9 @@ from odoo import http
 import base64
 import logging
 import json
-from ..utils.sales_orders.sales_orders import SaleOrder
-from ..utils.products.products import Product
-from ..utils.config.config import ConfigProducteca
+from producteca.sales_orders.sales_orders import SaleOrder
+from producteca.products.products import Product
+from producteca.config.config import ConfigProducteca
 _logger = logging.getLogger(__name__)
 
 class ProductecaImageController(http.Controller):

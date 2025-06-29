@@ -1,7 +1,7 @@
 from odoo import models, fields
 from odoo.exceptions import UserError
-from ..utils.config.config import ConfigProducteca
-from ..utils.sales_orders.sales_orders import SaleOrder
+from producteca.config.config import ConfigProducteca
+from producteca.sales_orders.sales_orders import SaleOrder
 
 class ProductecaSaleordersWizard(models.TransientModel):
     _name = 'producteca.saleorders.wizard'

@@ -1,6 +1,6 @@
 from odoo import models, fields, api
-from ..utils.sales_orders.sales_orders import SaleOrder as ProductecaApiSaleOrder
-from ..utils.config.config import ConfigProducteca
+from producteca.sales_orders.sales_orders import SaleOrder as ProductecaApiSaleOrder
+from producteca.config.config import ConfigProducteca
 from odoo.exceptions import UserError
 from ..models.producteca_queue import ACCEPTATION_CODES
 import logging

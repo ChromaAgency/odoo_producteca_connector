@@ -1,7 +1,7 @@
 from odoo import models, fields, api
 from odoo.exceptions import UserError
-from ..utils.sales_orders.sales_orders import SaleOrder
-from ..utils.config.config import ConfigProducteca
+from producteca.sales_orders.sales_orders import SaleOrder
+from producteca.config.config import ConfigProducteca
 from ..models.producteca_queue import ACCEPTATION_CODES
 
 class ConfirmCancelSaleOrder(models.TransientModel):

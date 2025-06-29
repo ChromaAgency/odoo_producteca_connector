@@ -42,8 +42,8 @@ class AccountMove(models.Model):
                         move.producteca_payment_state = 'approved'
                         self.env['producteca.queue'].create({
                                 'producteca_method': 'update' if move.producteca_invoice_already_exists else 'create',
-                                'producteca_body': {"id": move.producteca_order_id, "invoiceIntegration":{"decreaseStock": True}},
-                                'model':'account.move',
+                                'producteca_body': {"id": move.producteca_order_id, "invoiceIntegration": {"decreaseStock": True}},
+                                'model': 'account.move',
                                 'producteca_account_id': move.producteca_account_id.id,
                             })
         return result
