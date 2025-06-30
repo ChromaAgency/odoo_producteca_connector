@@ -1,8 +1,6 @@
 from odoo import models, fields, api
 from odoo.exceptions import UserError
-from ..utils.sales_orders.sales_orders import SaleOrder
-from ..utils.config.config import ConfigProducteca
-from ..models.producteca_queue import ACCEPTATION_CODES
+
 
 class ConfirmCancelSaleOrder(models.TransientModel):
     _name = 'confirm.cancel.sale.order'
@@ -14,16 +12,8 @@ class ConfirmCancelSaleOrder(models.TransientModel):
     def action_confirm_cancel(self):
         if not self.sale_order_id:
             raise UserError("No se selecciono una orden")
-        connection = self.env['producteca.connections'].sudo().search([('producteca_id', '=', self.sale_order_id.producteca_id)])
-        if not connection:
-            raise UserError("No se encontro la conexion con Producteca para cancelar la orden")
-        config = ConfigProducteca(
-            token=connection.producteca_account_id.bearer_token,
-            api_key=connection.producteca_account_id.api_key
-        )
-        response_status, _ = SaleOrder.cancel(config, int(self.sale_order_id.producteca_id))
-        if response_status not in ACCEPTATION_CODES:
-            raise UserError("No se pudo cancelar la orden en Producteca")
+        client = self.sale_order_id.produceteca_account_id
+        client.SalesOrder(id=self.sale_order_id.producteca_id).cancel()
         self.sale_order_id.with_context({'cancel_order_in_producteca': True}).action_cancel()
         return {'type': 'ir.actions.act_window_close'}
 

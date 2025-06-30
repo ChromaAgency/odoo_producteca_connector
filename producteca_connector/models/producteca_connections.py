@@ -3,7 +3,7 @@ from odoo.tools.translate import _
 
 
 class ProductecaConnections(models.Model):
-    _name = 'producteca.connections'
+    _name = 'producteca.product.connections'
     _description = 'Producteca Connections'
     
     producteca_account_id = fields.Many2one('producteca.account', string='Producteca Account', required=True)

@@ -4,12 +4,16 @@ from odoo import http
 import base64
 import logging
 import json
-from ..utils.sales_orders.sales_orders import SaleOrder
-from ..utils.products.products import Product
-from ..utils.config.config import ConfigProducteca
 _logger = logging.getLogger(__name__)
 
 class ProductecaImageController(http.Controller):
+
+    def _process_product_webhook(self, account_id, resource_id):
+        return request.env['product.product'].with_delay().get_product_from_producteca_and_create(account_id, resource_id)
+    
+    def _process_sale_webhook(self, client, account_id, resource_id):
+        sale_order = client.SalesOrder.get(resource_id)
+        return request.env['sale.order'].with_delay()._upset_saleorder_from_producteca(account_id, sale_order.to_dict())
 
     @http.route(['/producteca/webhooks'], type='http', auth='none', methods=['POST'], csrf=False)
     def webhooks(self, **post):
@@ -18,40 +22,14 @@ class ProductecaImageController(http.Controller):
         data = json.loads(json_body)
         resource_type = data['resourceType']
         resource_id = data['resourceId']
-        company_id = data['companyId']
-        account_id = request.env['producteca.account'].sudo().search([('producteca_company_id', '=', company_id)], limit=1)
+        account_id = request.env['producteca.account'].sudo().search([('producteca_company_id', '=', data['companyId'])], limit=1)
         if not account_id:
             return request.not_found("companyId not found")
-        ProductecaQueue = request.env["producteca.queue"].sudo()
+        client = account_id.get_client()
         if resource_type == 'products':
-            config = ConfigProducteca(
-                token=account_id.bearer_token,
-                api_key=account_id.api_key
-            )
-            product = Product(  
-                config=config,
-                create_if_it_doesnt_exist=account_id.create_if_dosnt_exist
-            )
-            product_to_create = product.get(config=config, product_id=resource_id)[0]
-            ProductecaQueue.create({
-                    'producteca_account_id': account_id.id,
-                    'producteca_body': product_to_create,
-                    'model': 'product.product',
-                    'producteca_method': 'odoo_create'
-            })
+            self._process_product_webhook(account_id, resource_id)
         if resource_type == 'products/saleOrders':
-            config = ConfigProducteca(
-                token=account_id.bearer_token,
-                api_key=account_id.api_key
-            )
-            sale_order_obj = SaleOrder.get(config, resource_id)
-            sale_order_dict = sale_order_obj.model_dump()
-            ProductecaQueue.create({
-                        'producteca_method': 'get',
-                        'producteca_body': sale_order_dict,
-                        'producteca_account_id': account_id.id,
-                        'model': 'sale.order'
-                })
+            self._process_sale_webhook(client, account_id, resource_id)
         return request.make_response("OK")
 
     @http.route(['/producteca/image/<int:product_id>'], type='http', auth="public", csrf=False, cors="*")
@@ -85,6 +63,7 @@ class ProductecaImageController(http.Controller):
         except Exception as e:
             _logger.error(f"Error al obtener imagen del producto ID {product_id}: {str(e)}", exc_info=True)
             return request.not_found("Error al procesar la imagen.")
+
 
 class ProductecaIInvoiceController(http.Controller):
 
