@@ -1,0 +1,8 @@
+[submodule "brand"]
+	path = brand
+	url = https://github.com/OCA/brand.git
+	branch = 18.0
+[submodule "queue"]
+	path = queue
+	url = https://github.com/OCA/queue.git
+	branch = 18.0
