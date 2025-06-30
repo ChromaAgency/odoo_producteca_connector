@@ -1,12 +1,14 @@
 from odoo import models, fields, api
 from odoo.tools.translate import _
+from producteca import ProductecaClient
+
 
 class ProductecaAccountConfig(models.Model):
     _name = 'producteca.account'
     _description = 'Producteca Account'
     _rec_name = 'account_name'
 
-    active= fields.Boolean(string='Active', default=True)
+    active = fields.Boolean(string='Active', default=True)
     account_name = fields.Char(string='Account Name', required=True)
     api_key = fields.Char(string='API Key', required=True)
     bearer_token = fields.Char(string='Bearer Token', required=True)
@@ -27,3 +29,6 @@ class ProductecaAccountConfig(models.Model):
     is_producteca_able_to_create_products = fields.Boolean(string='Is Producteca Able to Create Products?')
     create_if_dosnt_exist = fields.Boolean(string='Create If The Product Dosnt Exists')
     get_orders_from_last_days = fields.Integer(string='Get Orders From Last Days', default=7)
+
+    def get_client(self):
+        return ProductecaClient(api_key=self.api_key, token=self.bearer_token)
