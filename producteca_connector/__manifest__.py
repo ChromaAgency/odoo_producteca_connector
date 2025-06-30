@@ -13,15 +13,23 @@
     'website': "https://portal.chroma.agency/",
     "license": "AGPL-3",
 
-    'category': 'Uncategorized',
+    'category': 'Connector',
     'version': '1.0',
+    'external_dependencies': {
+        'python': [
+            'producteca'
+        ],
+    },
 
-    'depends': ['base','stock','sale','sale_management','contacts','product_brand','website_sale', 'brand','l10n_ar'],
+    'depends': [
+        'base', 'stock', 'sale', 'sale_management',
+        'contacts', 'product_brand', 'website_sale', 'brand',
+        'queue_job'
+        ],
 
     'data': [
-        'data/producteca_menu.xml', 
-        'views/producteca.account.views.xml', 
-        'views/producteca.queue.views.xml',
+        'data/producteca_menu.xml',
+        'views/producteca.account.views.xml',
         'views/producteca.connections.views.xml',
         'data/ir.cron.xml',
         'views/product.template.xml',

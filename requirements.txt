@@ -1,2 +1,2 @@
 typing_extensions==4.10.0
-pydantic
+producteca==2.0.21
