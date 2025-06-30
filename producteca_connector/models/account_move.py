@@ -30,7 +30,7 @@ class AccountMove(models.Model):
                     "integrationId": str(self.name) if self.name else str(self.id),
                     }
                 }
-        client.SaleOrder(**invoice_dict).invoice_integration()
+        client.SalesOrder(**invoice_dict).invoice_integration()
     
     def _create_payments_from_producteca(self):
         self.ensure_one()

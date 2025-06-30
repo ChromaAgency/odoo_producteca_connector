@@ -1,7 +1,5 @@
 from odoo import models, fields
 from odoo.exceptions import UserError
-from producteca.config.config import ConfigProducteca
-from producteca.sales_orders.sales_orders import SaleOrder
 
 
 class ProductecaSaleordersWizard(models.TransientModel):
@@ -23,6 +21,6 @@ class ProductecaSaleordersWizard(models.TransientModel):
         account = self.producteca_account_id
         client = account.get_client()
         for producteca_sale_order_id in producteca_products_ids:
-            sale_order = client.SaleOrder.get(producteca_sale_order_id)
+            sale_order = client.SalesOrder.get(producteca_sale_order_id)
             if sale_order:
                 self.env['sale.order'].with_delay()._upset_saleorder_from_producteca(account, sale_order.to_dict())

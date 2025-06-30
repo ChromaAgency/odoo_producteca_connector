@@ -2,7 +2,7 @@
 <odoo>
     <record id="ir_cron_enqueue_last_x_days_orders_from_producteca" model="ir.cron">
         <field name="name">Producteca: Encolar Órdenes de los Últimos X Días</field>
-        <field name="model_id" ref="model_producteca_queue"/>
+        <field name="model_id" ref="sale.model_sale_order"/>
         <field name="state">code</field>
         <field name="code">model.enqueue_last_x_days_orders_from_producteca()</field>
         <field name="interval_number">1</field>

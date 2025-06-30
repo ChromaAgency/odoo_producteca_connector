@@ -7,7 +7,7 @@ class ResPartner(models.Model):
 
     def _create_producteca_partner(self, producteca_id, account):
         client = account.get_client()
-        sale_order = client.SaleOrder.get(producteca_id)
+        sale_order = client.SalesOrder.get(producteca_id)
         contact = sale_order.contact
         if not contact:
             contact_ref = self.env.ref('producteca_connector.producteca_contact')

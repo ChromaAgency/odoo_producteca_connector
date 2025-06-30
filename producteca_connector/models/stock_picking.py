@@ -81,12 +81,13 @@ class StockPicking(models.Model):
     def _update_producteca_shipment(self, producteca_body):
         self.ensure_one()
         client = self.producteca_account_id.get_client()
-        return client.SaleOrder(id=self.sale_id.producte_order_id).update_shipment(self.producteca_shipment_id, producteca_body)
+        # producteca_body = self._create_producteca_dict_for_picking()
+        return client.SalesOrder(id=self.sale_id.producteca_id).update_shipment(self.producteca_shipment_id, producteca_body)
 
-    def _create_producteca_shipment(self, producteca_body):
+    def _create_producteca_shipment(self):
         client = self.producteca_account_id.get_client()
-        self._create_producteca_dict_for_picking()
-        return client.SaleOrder(id=self.sale_id.producte_order_id).add_shipment(producteca_body)
+        producteca_body = self._create_producteca_dict_for_picking()
+        return client.SalesOrder(id=self.sale_id.producteca_id).add_shipment(producteca_body)
 
     def write(self, vals):
         res = super(StockPicking, self).write(vals)

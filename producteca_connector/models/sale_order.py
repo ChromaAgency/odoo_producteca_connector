@@ -53,7 +53,7 @@ class SaleOrder(models.Model):
     def action_close_order(self):
         client = self.producteca_account_id.get_client()
         try:
-            client.SaleOrder(id=self.producteca_id).close()
+            client.SalesOrder(id=self.producteca_id).close()
         except Exception:
             raise UserError("No se pudo cerrar la orden en Producteca")
 
@@ -95,7 +95,7 @@ class SaleOrder(models.Model):
                     "note": rec.note if 'note' in vals else None,
                     "tags": [tag.name for tag in rec.tag_ids] if 'tag_ids' in vals else None
                 }
-                sale_order = client.SaleOrder(**update_dict)
+                sale_order = client.SalesOrder(**update_dict)
                 try:
                     sale_order.synchronize()
                 except Exception:
@@ -231,7 +231,7 @@ class SaleOrder(models.Model):
                                 ('producteca_account_id', '=', account.id)])
             product = connection.product_id
             if not product:
-                producteca_body_queue = line.get('variation') or line.get('product')
+                producteca_body_queue = line.get('variation') | line.get('product')
                 producteca_body_queue.update({
                     "variation_id": int(line.get('variation', {}).get('id'))
                 })
@@ -282,8 +282,8 @@ class SaleOrder(models.Model):
         if not order_lines: 
             order_lines = []
         lines = body.get('lines', [])
-        warehouse = self._get_warehouse(body.get('warehouse'))
-        sale_order_lines = self._process_sale_order_lines(lines, warehouse, order_lines)
+        warehouse = self._get_warehouse(body.get('warehouse'), account)
+        sale_order_lines = self._process_sale_order_lines(lines, warehouse, order_lines, account)
         if body.get('hasAnyShipments', False):
             sale_order_lines.append(self._compute_delivery_price(body))
         origin_platform = self._mapped_origin_application(body.get('salesChannel'))
@@ -294,10 +294,10 @@ class SaleOrder(models.Model):
             'origin_platform': origin_platform if origin_platform else '',
             'producteca_id': body.get('id'),
             'company_id': account.company_id.id,
-            'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id,
+            # 'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id,
             'producteca_shipment_data': body.get('shipments'),
             'producteca_account_id': account.id,
-            'cart_id': self._get_cart_id(),
+            'cart_id': self._get_cart_id(body),
             'producteca_payments_data': body.get('payments') if body.get('payments') else False,
             'has_existing_producteca_invoice': True if body.get('invoiceIntegration') else False
         }
@@ -365,13 +365,13 @@ class SaleOrder(models.Model):
                 **{"$filter": encoded_filter}
             )
             client = account.get_client()
-            saleorder_response = client.SaleOrder.search(params=params)
-            for result in saleorder_response.get('results', []):
-                sale_order_id = result.get('orderId', False)
+            saleorder_response = client.SalesOrder.search(params=params)
+            for result in saleorder_response.results:
+                sale_order_id = result.order_id
                 _logger.info(sale_order_id)
                 if not sale_order_id:
                     continue
-                sale_order_obj = client.SaleOrder.get(sale_order_id)
+                sale_order_obj = client.SalesOrder.get(sale_order_id)
                 sale_order_dict = sale_order_obj.to_dict()
                 self.with_delay()._upset_saleorder_from_producteca(account, sale_order_dict)
         return True

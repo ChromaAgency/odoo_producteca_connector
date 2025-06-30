@@ -10,7 +10,7 @@ class AccountPayment(models.Model):
     def _upsert_payment_in_producteca(self, account, producteca_body):
         client = account.get_client()
         sale_order_id = int(producteca_body.pop('producteca_sale_order_id'))
-        producteca_sale_order = client.SaleOrder(id=sale_order_id)
+        producteca_sale_order = client.SalseOrder(id=sale_order_id)
         if self.producteca_payment_id:
             producteca_sale_order.update_payment(self.producteca_payment_id, producteca_body)
         return producteca_sale_order.add_payment(producteca_body)

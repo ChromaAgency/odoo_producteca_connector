@@ -13,7 +13,7 @@ class ConfirmCancelSaleOrder(models.TransientModel):
         if not self.sale_order_id:
             raise UserError("No se selecciono una orden")
         client = self.sale_order_id.produceteca_account_id
-        client.SaleOrder(id=self.sale_order_id.producteca_id).cancel()
+        client.SalesOrder(id=self.sale_order_id.producteca_id).cancel()
         self.sale_order_id.with_context({'cancel_order_in_producteca': True}).action_cancel()
         return {'type': 'ir.actions.act_window_close'}
 

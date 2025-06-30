@@ -109,6 +109,7 @@ class ProductProduct(models.Model):
     # TODO: Change this for produceteca_response
     def _prepare_producteca_to_odoo_product_dict(self, producteca_response, odoo_product):
         producteca_response = filter_empty_values(producteca_response)
+        _logger.info(producteca_response)
         vals = {
             'name': producteca_response.get('name'),
             'default_code': producteca_response.get('sku'),
@@ -161,7 +162,7 @@ class ProductProduct(models.Model):
         return odoo_product.sudo().write(product_dict)
 
     def get_product_from_producteca_and_create(self, account, producteca_id):
-        client = account
+        client = account.get_client()
         product_service = client.Product
         product_service.create_if_it_doesnt_exist = account.create_if_dosnt_exist
         product = product_service.get(producteca_id)

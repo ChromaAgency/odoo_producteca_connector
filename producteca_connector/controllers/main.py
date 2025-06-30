@@ -4,18 +4,15 @@ from odoo import http
 import base64
 import logging
 import json
-from producteca.sales_orders.sales_orders import SaleOrder
-from producteca.products.products import Product
-from producteca.config.config import ConfigProducteca
 _logger = logging.getLogger(__name__)
 
 class ProductecaImageController(http.Controller):
 
     def _process_product_webhook(self, account_id, resource_id):
-        return request.env['product.product'].get_product_from_producteca_and_create(account_id, resource_id)
+        return request.env['product.product'].with_delay().get_product_from_producteca_and_create(account_id, resource_id)
     
     def _process_sale_webhook(self, client, account_id, resource_id):
-        sale_order = client.SaleOrder.get(resource_id)
+        sale_order = client.SalesOrder.get(resource_id)
         return request.env['sale.order'].with_delay()._upset_saleorder_from_producteca(account_id, sale_order.to_dict())
 
     @http.route(['/producteca/webhooks'], type='http', auth='none', methods=['POST'], csrf=False)
@@ -30,7 +27,7 @@ class ProductecaImageController(http.Controller):
             return request.not_found("companyId not found")
         client = account_id.get_client()
         if resource_type == 'products':
-            self._process_product_webhook(client, account_id, resource_id)
+            self._process_product_webhook(account_id, resource_id)
         if resource_type == 'products/saleOrders':
             self._process_sale_webhook(client, account_id, resource_id)
         return request.make_response("OK")
