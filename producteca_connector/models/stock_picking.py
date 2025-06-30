@@ -14,6 +14,69 @@ class StockPicking(models.Model):
 
     producteca_shipment_id = fields.Char(string="Producteca Shipment ID")
     producteca_account_id = fields.Many2one('producteca.account', string='Producteca Account')
+    
+    def _obtain_carrier_id(self, carrier_name):
+        carrier = self.env['delivery.carrier'].search([('name', '=', carrier_name)]).id
+        if not carrier:
+            delivery_product = self.env['product.product'].create({
+                'name': f'Servicio de Entrega: {carrier_name}',
+                'type': 'service',
+                'invoice_policy': 'order',
+            })
+            
+            carrier = self.env['delivery.carrier'].create({
+                'name': carrier_name,
+                'product_id': delivery_product.id,
+            }).id
+        return carrier
+
+    def _process_picking_with_shipment(self, picking_data):
+        products = {product_line.get('product'): product_line.get('quantity') for product_line in picking_data.get('products')}
+        status = picking_data.get('method').get('status')
+        raw_date = picking_data.get('date')
+        if raw_date:
+            cleaned_date = raw_date.split('.')[0].replace('T', ' ')
+            parsed_date = fields.Datetime.to_datetime(cleaned_date)
+        else:
+            parsed_date = fields.Datetime.now()
+        if status == 'Done':
+            for line in self.move_line_ids:
+                line.qty_done = products.get(line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id)
+            self.date_done = parsed_date
+            self.scheduled_date = parsed_date
+            self.action_confirm()
+        else:
+            for line in self.move_line_ids:
+                line.quantity = products.get(line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id)
+            self.scheduled_date = parsed_date
+            self.carrier_tracking_ref = picking_data.get('method').get('trackingNumber')
+        if picking_data.get('integration'):
+            self.producteca_shipment_id = picking_data.get('integration').get('integrationId')
+        if picking_data.get('method'):
+            self.carrier_id = self._obtain_carrier_id(picking_data.get('method').get('courier'))
+
+    def _create_producteca_dict_for_picking(self):
+        date_value = self.date_done if self.state == 'done' else self.scheduled_date
+        content_dict = {
+            "date": date_value.isoformat() if date_value else None,
+            "method": {
+                "trackingNumber": self.carrier_tracking_ref if self.carrier_tracking_ref else '',
+                "trackingUrl": '',
+                "courier": self.carrier_id.name if self.carrier_id else 'Unknown',
+                "status": "Done" if self.state == 'done' else "PickingPending",
+            }
+        }
+        product_dict = [
+            {
+                "product": line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.sale_id.producteca_account_id).producteca_id,
+                "variation": line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.sale_id.producteca_account_id).producteca_variation_id,
+                "quantity": line.qty_done if self.state == 'done' else line.quantity,
+            }
+            for line in self.move_line_ids
+        ] 
+        if product_dict:
+            content_dict.update({"products": product_dict})
+        return content_dict
 
     def _update_producteca_shipment(self, producteca_body):
         self.ensure_one()
@@ -21,13 +84,14 @@ class StockPicking(models.Model):
         return client.SaleOrder(id=self.sale_id.producte_order_id).update_shipment(self.producteca_shipment_id, producteca_body)
 
     def _create_producteca_shipment(self, producteca_body):
-        # TODO: Check this when refactoring SO
         client = self.producteca_account_id.get_client()
+        self._create_producteca_dict_for_picking()
         return client.SaleOrder(id=self.sale_id.producte_order_id).add_shipment(producteca_body)
 
     def write(self, vals):
         res = super(StockPicking, self).write(vals)
         for picking in self:
+            # TODO: Check if we can use the _create_producteca_dict_for_picking
             if picking.producteca_shipment_id and any(field in vals for field in PRODUCTECA_FIELDS) and not self.env.context.get("update_from_confirm"):
                 producteca_content_dict = {"id": picking.producteca_shipment_id}
                 date_to_send = picking.date_done if picking.state == 'done' else picking.scheduled_date
@@ -49,13 +113,10 @@ class StockPicking(models.Model):
         res = super(StockPicking, self).button_validate()
         for picking in self:
             if picking.producteca_shipment_id and picking.state == 'done' and not self.env.context.get("update_from_confirm"):
-                self = self.with_context(update_from_validate=True)
-                self.env['producteca.queue'].create({
-                    'producteca_method': 'update',
-                    'producteca_body': {"id": picking.sale_id.producteca_id, "invoiceIntegration":{"decreaseStock": True}},
-                    'model': 'account.move',
-                    'producteca_account_id': picking.sale_id.producteca_account_id.id,
-                })
+                picking = picking.with_context(update_from_validate=True)
+                for invoice in picking.sale_id.invoice_ids:
+                    invoice.with_delay().add_invoice_to_producteca()
+    
         return res
 
 

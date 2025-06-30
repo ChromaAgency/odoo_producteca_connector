@@ -21,7 +21,16 @@ class AccountMove(models.Model):
         # I Think we dont need this anymore, this was used when producteca_invoice_already_exists was False, is it really necessary?
         # response = SaleOrder.synchronize(SaleOrder(**producteca_body))
         client = self.producteca_account_id.get_client()
-        client.SaleOrder(id=self.producteca_order_id, invoiceIntegration={"documentUrl": "", "decreaseStock": True}).invoice_integration()
+        if not self.access_token:
+            self._portal_ensure_token()   
+        invoice_dict = {
+                "id": int(self.producteca_order_id),
+                "invoiceIntegration": {
+                    "documentUrl": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/facturas/{self.id}/{self.access_token}/factura_producteca.pdf",
+                    "integrationId": str(self.name) if self.name else str(self.id),
+                    }
+                }
+        client.SaleOrder(**invoice_dict).invoice_integration()
     
     def _create_payments_from_producteca(self):
         self.ensure_one()

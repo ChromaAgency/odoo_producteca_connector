@@ -24,15 +24,12 @@
     'depends': [
         'base', 'stock', 'sale', 'sale_management',
         'contacts', 'product_brand', 'website_sale', 'brand',
-        # We should take out this l10n_ar dependency and take all that to a new module.
-        'l10n_ar',
         'queue_job'
         ],
 
     'data': [
         'data/producteca_menu.xml',
         'views/producteca.account.views.xml',
-        'views/producteca.queue.views.xml',
         'views/producteca.connections.views.xml',
         'data/ir.cron.xml',
         'views/product.template.xml',

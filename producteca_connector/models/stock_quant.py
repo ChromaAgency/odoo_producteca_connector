@@ -12,7 +12,7 @@ class StockQuant(models.Model):
         self.ensure_one()
         # We should handle many products at once
         # for connection in producteca_connections:
-        producteca_connection = self.env['producteca.connections'].sudo().search([('product_id', '=', self.product_id.id)], limit=1)
+        producteca_connection = self.env['producteca.product.connections'].sudo().search([('product_id', '=', self.product_id.id)], limit=1)
         producteca_body = {"code": str(self.product_id.id), "stocks": [{"quantity": self.quantity,
                            "available_quantity": self.available_quantity, "warehouse": self.location_id.producteca_warehouse_name}]}
         producteca_body.update({

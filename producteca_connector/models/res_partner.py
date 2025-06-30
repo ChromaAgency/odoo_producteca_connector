@@ -17,12 +17,15 @@ class ResPartner(models.Model):
             return partner
         company = self.env['res.partner'].sudo().search([('vat', '=', contact.billingInfo.docNumber), ('parent_id', '=', False)], limit=1)
         if not company:
+            # TODO: Migrate this to producteca_connector_l10n_ar
             identification = self.env['l10n_latam.identification.type'].sudo().search([('name', '=', contact.billingInfo.docType)], limit=1)
             responsibility = self.env['l10n_ar.afip.responsibility.type'].sudo().search([('name', 'ilike', contact.billingInfo.taxPayerType)], limit=1)
             state = self.env['res.country.state'].sudo().search([('name', '=', contact.billingInfo.state)], limit=1)
             company_info = {
                 'name': contact.billingInfo.businessName,
+                # TODO: Migrate this to producteca_connector_l10n_ar
                 'l10n_latam_identification_type_id': identification.id,
+                # TODO: Migrate this to producteca_connector_l10n_ar
                 'l10n_ar_afip_responsibility_type_id': responsibility.id,
                 'vat': contact.billingInfo.docNumber,
                 'street': f'{contact.billingInfo.streetName} {contact.billingInfo.streetNumber}',

@@ -11,7 +11,7 @@ class ProductTemplate(models.Model):
 
     def _update_product_price(self):
         # TODO: Check why 3 queues are getting generated
-        producteca_connection = self.env['producteca.connections'].sudo().search([('product_id', '=', self.id)])
+        producteca_connection = self.env['producteca.product.connections'].sudo().search([('product_id', '=', self.id)])
         client = producteca_connection.producteca_account_id.get_client()
         body_dict = {
             "code": str(producteca_connection.product_id.id),
