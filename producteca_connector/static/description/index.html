@@ -1,36 +1,40 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Producteca en tu Odoo</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Producteca en tu Odoo</title>
+  <link rel="stylesheet" crossorigin href="./index.css">
 </head>
 
-<body class="bg-gradient-to-br from-[#8a50bc]/50 via-[#310860]/25 to-[#2ee0ca]/50 font-poppins text-gray-800 leading-relaxed">
+<body
+    class="bg-gradient-to-br from-[#8a50bc]/50 via-[#310860]/25 to-[#2ee0ca]/50 font-poppins text-gray-800 leading-relaxed">
 
     <div class="container max-w-5xl mx-auto p-4 sm:p-8">
 
         <header class="mb-8 text-center">
-            <h1 class="text-3xl sm:text-4xl font-bold uppercase bg-gradient-to-br from-[#8a50bc]/100 via-[#310860]/80 to-[#2ee0ca]/20 bg-clip-text text-transparent">
+            <h1
+                class="text-3xl sm:text-4xl font-bold uppercase bg-gradient-to-br from-[#310860]/80 to-[#8a50bc]/100 bg-clip-text text-transparent">
                 Producteca en tu odoo
             </h1>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center mb-8">
-            <div class="w-full h-56 bg-gray-200 border-2 border-dashed border-gray-400 rounded-lg flex items-center justify-center">
-                <img src="1.jpg" />
+            <div class="w-full h-56 flex items-center justify-center">
+                <img class="rounded-lg" src="./Imagenes.png" alt="Imagen Odoo">
             </div>
 
             <section>
-                <h2 class="text-2xl font-semibold text-purple-600 mb-4">¿Qué es Producteca odoo conector?</h2>
+                <h2 class="text-2xl font-semibold text-[#310860] mb-4">¿Qué es Producteca odoo conector?</h2>
                 <p class="mb-4">
-                    Es el <strong class="font-semibold">Conector Oficial de Producteca para Odoo</strong> (módulo odoo_conector_api_producteca), diseñado para el módulo de marketplaces.
+                    Es el <strong class="font-semibold">Conector No Oficial de Producteca para Odoo</strong> (módulo
+                    odoo_conector_api_producteca), diseñado para conectar marketplaces.
                 </p>
                 <ul class="list-disc list-inside space-y-2">
-                    <li><strong class="font-semibold">Desarrollado por:</strong> Adhoc Interactive</li>
-                    <li><strong class="font-semibold">Certificado por:</strong> Producteca</li>
-                    <li><strong class="font-semibold">Más info:</strong> <a href="https://www.adhocinteractive.com/ar/preguntas-frecuentes-faq-modulo-producteca" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Ver preguntas frecuentes</a></li>
+                    <li><strong class="font-semibold">Desarrollado por:</strong> Chroma Agency </li>
+                    <!-- <li><strong class="font-semibold">Certificado por:</strong> Producteca</li> -->
+            
                 </ul>
             </section>
         </div>
@@ -39,8 +43,8 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center mb-8">
             <section>
-                <h2 class="text-2xl font-semibold text-purple-600 mb-4">Características</h2>
-                <ul class="list-disc list-inside space-y-2 text-sm">
+                <h2 class="text-2xl font-semibold text-[#310860] mb-4">Características</h2>
+                <ul class="list-disc list-outside space-y-2 ml-10">
                     <li>Publica productos/precios/stock completos desde Odoo.</li>
                     <li>Enlace de imágenes y variaciones de atributos.</li>
                     <li>Actualización automática de precios y stock.</li>
@@ -57,41 +61,46 @@
                 </ul>
             </section>
 
-             <div class="w-full h-56 bg-gray-200 border-2 border-dashed border-gray-400 rounded-lg flex items-center justify-center">
-                 <p class="text-gray-500">diagrama de integracion</p>
+            <div class="w-full h-56 rounded-lg flex items-center justify-center border-black">
+                <img src="./modulo.png" alt="modulo" class="object-cover rounded-lg">
             </div>
         </div>
 
         <hr class="my-8 border-[#8a50bc]">
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center mb-8">
-             <div class="w-full h-56 bg-gray-200 border-2 border-dashed border-gray-400 rounded-lg flex items-center justify-center">
-                <img src="2.jpg" />
-                
+            <div class="w-full h-56 flex items-center justify-center">
+                <img class="rounded-lg" src="./configuracion-modulo.png" alt="config-modulo">
             </div>
-            
+
             <section>
-                <h2 class="text-2xl font-semibold text-purple-600 mb-4">Configuración sencilla y rápida</h2>
-                <p>El módulo está diseñado para una instalación y configuración simple directamente desde el panel de Odoo.</p>
+                <h2 class="text-2xl font-semibold text-[#310860] mb-4">Configuración sencilla y rápida</h2>
+                <p>El módulo está diseñado para una instalación y configuración simple directamente desde el panel de
+                    Odoo.</p>
             </section>
         </div>
 
         <hr class="my-8 border-[#8a50bc]">
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <section class="bg-purple-100 p-6 rounded-lg">
-                <h2 class="text-2xl font-semibold text-purple-800 mb-4">Garantía</h2>
-                <p class="text-purple-900">Con la compra de este módulo, Chroma garantiza los primeros <strong class="font-semibold">2 meses de soporte gratuito</strong>. Pasado ese plazo, el mismo pasará a ser cotizado en caso de que se solicite.</p>
+            <section class="bg-white/20 backdrop-blur-xl border border-[#8a50bc] p-6 rounded-lg">
+                <h2 class="text-2xl font-semibold text-[#310860] mb-4">Garantía</h2>
+                <p class="text-purple-900">Con la compra de este módulo, Chroma garantiza los primeros <strong
+                        class="font-semibold">2 meses de soporte gratuito</strong>. Pasado ese plazo, el mismo pasará a
+                    ser cotizado en caso de que se solicite.</p>
             </section>
 
-            <section class="bg-purple-100 p-6 rounded-lg">
-                <h2 class="text-2xl font-semibold text-purple-800 mb-4">Contacto</h2>
+            <section class="bg-white/20 backdrop-blur-xl border border-[#8a50bc] p-6 rounded-lg">
+                <h2 class="text-2xl font-semibold text-[#310860] mb-4">Contacto</h2>
                 <p class="text-purple-900">Para consultas, puede escribir a:<br>
-                <a href="mailto:odooapps@chroma.agency" class="font-semibold text-blue-600 hover:underline">odooapps@chroma.agency</a></p>
+                    <a href="mailto:odooapps@chroma.agency"
+                        class="font-semibold text-blue-600 hover:underline">odooapps@chroma.agency</a>
+                </p>
             </section>
         </div>
 
     </div>
 
 </body>
+
 </html>
