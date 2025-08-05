@@ -4,10 +4,10 @@
         <field name="name">sale.order.cart.list</field>
         <field name="model">sale.order.cart</field>
         <field name="arch" type="xml">
-            <list string="Sale Order Carts" create="false">
+            <tree string="Sale Order Carts" create="false">
                 <field name="producteca_id"/>
                 <field name="order_ids" string="Orders"/>
-            </list>
+            </tree>
         </field>
     </record>
 
@@ -23,12 +23,12 @@
                     <notebook>
                         <page string="Orders">
                             <field name="order_ids">
-                                <list>
+                                <tree>
                                     <field name="name"/>
                                     <field name="partner_id"/>
                                     <field name="amount_total"/>
                                     <field name="date_order"/>
-                                </list>
+                                </tree>
                             </field>
                         </page>
                     </notebook>
@@ -40,7 +40,7 @@
     <record id="action_sale_order_cart" model="ir.actions.act_window">
         <field name="name">Sale Order Carts</field>
         <field name="res_model">sale.order.cart</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">tree,form</field>
     </record>
 
     <menuitem id="menu_producteca_carts"
