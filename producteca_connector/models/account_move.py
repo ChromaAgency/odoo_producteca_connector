@@ -23,22 +23,22 @@ class AccountMove(models.Model):
         client = self.producteca_account_id.get_client()
         if not self.access_token:
             self._portal_ensure_token()   
-        invoice_dict = {
-                "id": int(self.producteca_order_id),
-                "invoiceIntegration": {
-                    "documentUrl": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/facturas/{self.id}/{self.access_token}/factura_producteca.pdf",
-                    "integrationId": str(self.name) if self.name else str(self.id),
+        if self.producteca_invoice_already_exists:
+            invoice_dict = {
+                    "id": int(self.producteca_order_id),
+                    "invoiceIntegration": {
+                        "documentUrl": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/facturas/{self.id}/{self.access_token}/factura_producteca.pdf",
+                        "integrationId": str(self.name) if self.name else str(self.id),
+                        }
                     }
-                }
-        client.SalesOrder(**invoice_dict).invoice_integration()
+            client.SalesOrder(**invoice_dict).invoice_integration()
     
     def _create_payments_from_producteca(self):
         self.ensure_one()
         journals = self.env['account.journal'].search([])
         if self.producteca_payment_data:
             payments = safe_eval(self.producteca_payment_data)
-            # ! Why index 0?
-            for payment in payments[0]:
+            for payment in payments:
                 # ! Are there any other status?
                 if payment['status'] == 'Approved':
                     self = self.with_context(update_from_invoice=True)

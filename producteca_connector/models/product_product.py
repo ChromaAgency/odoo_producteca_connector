@@ -53,14 +53,14 @@ class ProductProduct(models.Model):
                     
                     if not existing_value:
                         attribute_line_ops.append((1, existing_line.id, {
-                            'value_ids': [(0, 0, {'name': attr['value']})]
+                            'value_ids': [(0, 0, {'name': attr['value'], 'attribute_id': attribute_id.id})]
                         }))
                     else:
                         continue
                 else:
                     attribute_line_ops.append((0, 0, {
                         'attribute_id': attribute_id.id,
-                        'value_ids': [(0, 0, {'name': attr['value']})]
+                        'value_ids': [(0, 0, {'name': attr['value'], 'attribute_id': attribute_id.id})]
                     }))
         
         if attribute_line_ops:
@@ -84,15 +84,27 @@ class ProductProduct(models.Model):
     def _handle_producteca_connection_ids(self, producteca_response, odoo_product):
         if not producteca_response.get('account_id'):
             return []
+        
+        existing_connection = self.env['producteca.product.connections'].sudo().search([
+            ('producteca_account_id', '=', producteca_response.get('account_id')),
+            ('producteca_id', '=', str(producteca_response.get('id'))),
+            ('producteca_variation_id', '=', str(producteca_response.get('variation_id'))),
+            ('product_id', '=', odoo_product.id if odoo_product else False)
+        ], limit=1)
+        
+        if existing_connection:
+            return []
             
         if odoo_product and odoo_product.producteca_connection_ids:
-            account_exists = False
+            connection_exists = False
             for connection in odoo_product.producteca_connection_ids:
-                if connection.producteca_account_id == producteca_response.get('account_id'):
-                    account_exists = True
+                if (connection.producteca_account_id.id == producteca_response.get('account_id') and
+                    connection.producteca_id == str(producteca_response.get('id')) and 
+                    connection.producteca_variation_id == str(producteca_response.get('variation_id'))):
+                    connection_exists = True
                     break
             
-            if not account_exists:
+            if not connection_exists:
                 return [Command.link(0)] + [Command.create({
                     "producteca_account_id": producteca_response.get('account_id'),
                     "producteca_id": producteca_response.get('id'),

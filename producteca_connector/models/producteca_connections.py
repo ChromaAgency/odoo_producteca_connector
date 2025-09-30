@@ -10,3 +10,4 @@ class ProductecaConnections(models.Model):
     product_id = fields.Many2one('product.product', string='Product')
     producteca_variation_id = fields.Char(string='Producteca Variation ID')
     producteca_id = fields.Char(string='Producteca ID', required=True)
+    active = fields.Boolean(string='Active', default=True)
