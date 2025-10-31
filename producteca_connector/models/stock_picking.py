@@ -120,10 +120,20 @@ class StockPicking(models.Model):
         for picking in self:
             if picking.producteca_shipment_id and picking.state == 'done' and not self.env.context.get("update_from_confirm"):
                 picking = picking.with_context(update_from_validate=True)
-                for invoice in picking.sale_id.invoice_ids:
-                    invoice.with_delay().add_invoice_to_producteca()
-    
+                picking.with_delay()._send_decreasestock_to_producteca()    
         return res
+
+    def _send_decreasestock_to_producteca(self):
+        self.ensure_one()
+        client = self.producteca_account_id.get_client()
+        decrease_stock_body = {
+                "id": int(self.sale_id.producteca_order_id),
+                "invoiceIntegration": {
+                    "documentUrl": "",
+                    "integrationId": str(self.name) if self.name else str(self.id),
+                    "decreaseStock": True
+                    }}
+        client.SalesOrder(**decrease_stock_body).invoice_integration()
 
 
 class StockMoveLine(models.Model):
@@ -142,3 +152,6 @@ class StockMoveLine(models.Model):
                 }}
                 move_line.picking_id.with_delay()._update_producteca_shipment(product_dict)
         return res
+
+# TODO cuando se mueva el stock de un producto enviar el stock actual del producto por warehouse
+# DONE: Sincronización de precios implementada - Ver product_pricelist.py métodos sync_prices_to_producteca() y cron_sync_all_pricelists_to_producteca()

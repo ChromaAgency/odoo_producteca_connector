@@ -217,6 +217,24 @@ class SaleOrder(models.Model):
             warehouse = account.warehouse_ids.filtered(lambda x: x.producteca_warehouse_name == warehouse_name).id
         return warehouse
 
+    def _handle_missing_product(self, line, account):
+        producteca_body_queue = line.get('variation') | line.get('product')
+        producteca_body_queue.update({
+            "variation_id": int(line.get('variation', {}).get('id'))
+        })
+        # if account.is_product_price_modified_by_producteca:
+        #     producteca_body_queue.update({
+        #         "product_price": float(line.get('price', 0) / line.get('quantity', 1))
+        #     })
+        #     _logger.info("producteca product price to sync: " + str(line.get('price', 0) / line.get('quantity', 1)))
+        odoo_product = self.env['product.product'].search([('default_code', '=', producteca_body_queue['sku'])], limit=1)
+        if odoo_product:
+            odoo_product._update_product_from_producteca(account, producteca_body_queue, odoo_product)
+            product = odoo_product
+        if not product:
+            product = self.env['product.product']._create_product_from_producteca(account, producteca_body_queue)
+        return product
+
     def _process_sale_order_lines(self, lines, warehouse, order_lines, account):
         sale_order_lines = []
         for line in lines:
@@ -228,11 +246,7 @@ class SaleOrder(models.Model):
                                 ('producteca_account_id', '=', account.id)], limit=1)
             product = connection.product_id
             if not product:
-                producteca_body_queue = line.get('variation') | line.get('product')
-                producteca_body_queue.update({
-                    "variation_id": int(line.get('variation', {}).get('id'))
-                })
-                product = self.env['product.product']._create_product_from_producteca(account, producteca_body_queue)
+                product = self._handle_missing_product(line, account)
 
             product_tax = product.taxes_id
             unit_price = line.get('price', 0)
@@ -241,6 +255,8 @@ class SaleOrder(models.Model):
                 tax_id = product_tax[0]
                 # TODO: If it is percentage, possibly better to use a compute and calculate this different
                 unit_price = line.get('price', 0) / (1 + (tax_id.amount/100))
+            # if account.is_product_price_modified_by_producteca:
+            #     product.list_price = unit_price / float(line.get('quantity', 1))
             if product.id in order_lines:
                 sale_order_lines.append(Command.update(order_lines[product.id], {
                     'product_uom_qty': line.get('quantity', 0),

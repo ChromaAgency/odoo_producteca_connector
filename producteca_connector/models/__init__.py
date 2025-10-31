@@ -4,6 +4,8 @@ from . import res_company
 from . import producteca_connections
 from . import product_product
 from . import product_template
+from . import product_pricelist
+from . import queue_job
 from . import stock_quant
 from . import stock_warehouse
 from . import sale_order
