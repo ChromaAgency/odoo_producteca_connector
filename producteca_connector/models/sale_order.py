@@ -10,15 +10,71 @@ _logger = logging.getLogger(__name__)
 
 
 class SaleOrder(models.Model):
+    """Extended Sale Order for Producteca marketplace integration.
+    
+    This model extends the standard Odoo sale order to support comprehensive
+    integration with Producteca marketplace. It handles order import, export,
+    synchronization, and lifecycle management between Odoo and Producteca.
+    
+    Business Logic:
+    - Imports orders from Producteca marketplace with complete data mapping
+    - Manages order synchronization and status updates
+    - Handles product mapping and creation during order import
+    - Processes shipments and delivery information
+    - Manages payment data and invoice integration
+    - Supports multi-platform order origin tracking
+    - Handles order cancellation and closure workflows
+    
+    Key Features:
+    - Bidirectional order synchronization
+    - Automatic product creation and mapping
+    - Shipment management integration
+    - Payment and invoice processing
+    - Multi-warehouse support
+    - Platform-specific order handling
+    - Queued background processing
+    - Error handling and validation
+    
+    Integration Points:
+    - Producteca API for order operations
+    - Stock management for shipments
+    - Accounting for invoices and payments
+    - Product management for catalog sync
+    - Partner management for customer data
+    """
     _inherit = "sale.order"
 
-    producteca_id = fields.Char(string="Producteca ID")
-    cart_id = fields.Many2one("sale.order.cart", string="Cart")
-    origin_platform = fields.Char(string="Origin Platform")
-    producteca_shipment_data = fields.Text(string="Información del envío")
-    producteca_payments_data = fields.Text(string="Información de los pagos")
-    producteca_account_id = fields.Many2one('producteca.account', string='Producteca Account')
-    has_existing_producteca_invoice = fields.Boolean(string="Invoice already exists")
+    # Producteca Integration Fields
+    producteca_id = fields.Char(
+        string="Producteca ID",
+        help="Unique identifier of this order in Producteca marketplace."
+    )
+    cart_id = fields.Many2one(
+        "sale.order.cart", 
+        string="Cart",
+        help="Shopping cart associated with this order in Producteca."
+    )
+    origin_platform = fields.Char(
+        string="Origin Platform",
+        help="Original platform/channel where this order was placed (e.g., MercadoLibre, Amazon, etc.)."
+    )
+    producteca_shipment_data = fields.Text(
+        string="Información del envío",
+        help="JSON data containing shipment information from Producteca marketplace."
+    )
+    producteca_payments_data = fields.Text(
+        string="Información de los pagos",
+        help="JSON data containing payment information from Producteca marketplace."
+    )
+    producteca_account_id = fields.Many2one(
+        'producteca.account', 
+        string='Producteca Account',
+        help="Producteca account configuration used for this order's integration."
+    )
+    has_existing_producteca_invoice = fields.Boolean(
+        string="Invoice already exists",
+        help="Indicates if an invoice already exists for this order in Producteca marketplace."
+    )
 
     def action_confirm(self):
         _ = super().action_confirm()
