@@ -1,6 +1,9 @@
 from odoo import models, fields, api
 from odoo.tools.translate import _
 from producteca import ProductecaClient
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 class ProductecaAccountConfig(models.Model):
@@ -27,8 +30,21 @@ class ProductecaAccountConfig(models.Model):
     is_stock_modified_by_producteca = fields.Boolean(string='Is Stock Modified by Producteca?')
     is_product_price_modified_by_producteca = fields.Boolean(string='Is Product Price Modified by Producteca?')
     is_producteca_able_to_create_products = fields.Boolean(string='Is Producteca Able to Create Products?')
+    is_producteca_able_to_modified_products = fields.Boolean(string='Is Producteca Able to Modify Products?')
     create_if_dosnt_exist = fields.Boolean(string='Create If The Product Dosnt Exists')
     get_orders_from_last_days = fields.Integer(string='Get Orders From Last Days', default=7)
+    is_odoo_able_to_update_producteca_prices = fields.Boolean(string='Is Odoo Able to Update Producteca Prices?')
+
+    _sql_constraints = [
+        ('check_price_sync_exclusivity', 
+         'CHECK(NOT(is_product_price_modified_by_producteca = true AND is_odoo_able_to_update_producteca_prices = true))',
+         'Only one price synchronization option can be active at a time. Either Producteca modifies product prices OR Odoo updates Producteca prices, but not both.')
+    ]
 
     def get_client(self):
         return ProductecaClient(api_key=self.api_key, token=self.bearer_token)
+
+    def sync_all_products_from_producteca(self):
+        """Sincroniza todos los productos de Producteca para esta cuenta"""
+        self.ensure_one()
+        return self.env['product.product'].sync_all_products_from_producteca()

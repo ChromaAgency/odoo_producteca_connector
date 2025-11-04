@@ -1,4 +1,6 @@
 from odoo import models, fields
+import logging
+_logger = logging.getLogger(__name__)
 
 PRODUCTECA_FIELDS = [
     "date_done",
@@ -16,7 +18,7 @@ class StockPicking(models.Model):
     producteca_account_id = fields.Many2one('producteca.account', string='Producteca Account')
     
     def _obtain_carrier_id(self, carrier_name):
-        carrier = self.env['delivery.carrier'].search([('name', '=', carrier_name)]).id
+        carrier = self.env['delivery.carrier'].search([('name', '=', carrier_name)], limit=1)
         if not carrier:
             delivery_product = self.env['product.product'].create({
                 'name': f'Servicio de Entrega: {carrier_name}',
@@ -27,8 +29,8 @@ class StockPicking(models.Model):
             carrier = self.env['delivery.carrier'].create({
                 'name': carrier_name,
                 'product_id': delivery_product.id,
-            }).id
-        return carrier
+            })
+        return carrier.id
 
     def _process_picking_with_shipment(self, picking_data):
         products = {product_line.get('product'): product_line.get('quantity') for product_line in picking_data.get('products')}
@@ -80,8 +82,11 @@ class StockPicking(models.Model):
 
     def _update_producteca_shipment(self, producteca_body):
         self.ensure_one()
+        if not self.producteca_shipment_id:
+            return None
+        if not producteca_body:
+            return None
         client = self.producteca_account_id.get_client()
-        # producteca_body = self._create_producteca_dict_for_picking()
         return client.SalesOrder(id=self.sale_id.producteca_id).update_shipment(self.producteca_shipment_id, producteca_body)
 
     def _create_producteca_shipment(self):
@@ -115,10 +120,20 @@ class StockPicking(models.Model):
         for picking in self:
             if picking.producteca_shipment_id and picking.state == 'done' and not self.env.context.get("update_from_confirm"):
                 picking = picking.with_context(update_from_validate=True)
-                for invoice in picking.sale_id.invoice_ids:
-                    invoice.with_delay().add_invoice_to_producteca()
-    
+                picking.with_delay()._send_decreasestock_to_producteca()    
         return res
+
+    def _send_decreasestock_to_producteca(self):
+        self.ensure_one()
+        client = self.producteca_account_id.get_client()
+        decrease_stock_body = {
+                "id": int(self.sale_id.producteca_order_id),
+                "invoiceIntegration": {
+                    "documentUrl": "",
+                    "integrationId": str(self.name) if self.name else str(self.id),
+                    "decreaseStock": True
+                    }}
+        client.SalesOrder(**decrease_stock_body).invoice_integration()
 
 
 class StockMoveLine(models.Model):
@@ -137,3 +152,6 @@ class StockMoveLine(models.Model):
                 }}
                 move_line.picking_id.with_delay()._update_producteca_shipment(product_dict)
         return res
+
+# TODO cuando se mueva el stock de un producto enviar el stock actual del producto por warehouse
+# DONE: Sincronización de precios implementada - Ver product_pricelist.py métodos sync_prices_to_producteca() y cron_sync_all_pricelists_to_producteca()

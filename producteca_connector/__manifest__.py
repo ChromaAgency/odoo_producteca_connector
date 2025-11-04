@@ -43,6 +43,7 @@
         'data/records.xml',
         'views/account.journal.xml',
         'views/account.move.xml',
+        'views/product.pricelist.xml'
     ],
     'demo': [],
     'application': True,

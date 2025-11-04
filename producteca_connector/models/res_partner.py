@@ -1,4 +1,7 @@
 from odoo import models, fields, api
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
@@ -15,32 +18,35 @@ class ResPartner(models.Model):
         partner = self.env['res.partner'].sudo().search([('producteca_id', '=', str(contact.id))], limit=1)
         if partner:
             return partner
-        company = self.env['res.partner'].sudo().search([('vat', '=', contact.billingInfo.docNumber), ('parent_id', '=', False)], limit=1)
-        if not company:
+        company = self.env['res.partner'].sudo().search([('vat', '=', contact.billing_info.doc_number), ('parent_id', '=', False)], limit=1)
+        if not company and contact.billing_info.doc_number:
             # TODO: Migrate this to producteca_connector_l10n_ar
-            identification = self.env['l10n_latam.identification.type'].sudo().search([('name', '=', contact.billingInfo.docType)], limit=1)
-            responsibility = self.env['l10n_ar.afip.responsibility.type'].sudo().search([('name', 'ilike', contact.billingInfo.taxPayerType)], limit=1)
-            state = self.env['res.country.state'].sudo().search([('name', '=', contact.billingInfo.state)], limit=1)
+            identification = self.env['l10n_latam.identification.type'].sudo().search([('name', '=', contact.billing_info.doc_type)], limit=1)
+            responsibility = self.env['l10n_ar.afip.responsibility.type'].sudo().search([('name', 'ilike', contact.billing_info.tax_payer_type)], limit=1)
+            state = self.env['res.country.state'].sudo().search([('name', '=', contact.billing_info.state)], limit=1)
             company_info = {
-                'name': contact.billingInfo.businessName,
+                'name': contact.billing_info.business_name if contact.billing_info.business_name else contact.name,
                 # TODO: Migrate this to producteca_connector_l10n_ar
                 'l10n_latam_identification_type_id': identification.id,
                 # TODO: Migrate this to producteca_connector_l10n_ar
                 'l10n_ar_afip_responsibility_type_id': responsibility.id,
-                'vat': contact.billingInfo.docNumber,
-                'street': f'{contact.billingInfo.streetName} {contact.billingInfo.streetNumber}',
-                'zip': contact.billingInfo.zipCode,
-                'city': contact.billingInfo.city,
+                'vat': contact.billing_info.doc_number,
+                'street': f'{contact.billing_info.street_name} {contact.billing_info.street_number}',
+                'zip': contact.billing_info.zip_code,
+                'city': contact.billing_info.city,
                 'state_id': state.id,
-                'country_id': self.env.ref('base.ar').id
+                'country_id': self.env.ref('base.ar').id,
+                'company_type': 'company',
             }
             company = self.env['res.partner'].sudo().create(company_info)
         contact_info = {
             'name': contact.name,
             'producteca_id': str(contact.id),
             'email': contact.mail,
-            'phone': contact.phoneNumber,
-            'parent_id': company.id
+            'phone': contact.phone_number,
+            
         }
+        if company:
+            contact_info['parent_id'] = company.id
         partner = self.env['res.partner'].sudo().create(contact_info)
         return partner

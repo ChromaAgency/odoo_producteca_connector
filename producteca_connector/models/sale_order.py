@@ -23,32 +23,58 @@ class SaleOrder(models.Model):
     def action_confirm(self):
         _ = super().action_confirm()
         for rec in self:
-            if rec.producteca_id and rec.picking_ids and rec.producteca_shipment_data:
-                rec.picking_ids.producteca_account_id = rec.producteca_account_id
-                shipment_data = safe_eval(rec.producteca_shipment_data)
-                shipment_per_picking = {shipment.get('id'): shipment for shipment in shipment_data}
-                synced_shipment_ids = set()
-                already_synced_pickings = rec.picking_ids.filtered(lambda p: p.producteca_shipment_id in shipment_per_picking.keys())
-                for synced_picking in already_synced_pickings:
-                    picking_data = shipment_per_picking.get(synced_picking.producteca_shipment_id)
-                    synced_picking._process_picking_with_shipment(picking_data)
-                    synced_shipment_ids.add(synced_picking.producteca_shipment_id)
-                
-                unsynced_pickings = rec.picking_ids - already_synced_pickings
-                unsynced_shipments = list(filter(lambda s: s[0] in synced_shipment_ids, shipment_per_picking.items()))
-                for picking in unsynced_pickings:
-                    if unsynced_shipments:
-                        shipment_id, picking_data = next(unsynced_shipments)
-                        picking.producteca_shipment_id = shipment_id
-                        picking._process_picking_with_shipment(picking_data)
-                    else:
-                        picking = picking.with_delay()._create_producteca_shipment()
-            # TODO: Can shippings be multiple? For example an orden comes from producteca with 3 shippings.abs
-            # We should support this.
-            # TODO: ! I think we do not want this, close order is only for a very specific case
-            # if rec.producteca_id and not rec.producteca_shipment_data:
-            #     rec.action_close_order()
+            if rec.producteca_id and rec.picking_ids:
+                rec._process_producteca_shipments()
         return _
+    
+    def _should_skip_shipment_update(self, shipment_data):
+        if not shipment_data:
+            return False
+        last_shipment = shipment_data[-1] if shipment_data else None
+        if last_shipment and last_shipment.get('method', {}).get('status') == 'Done':
+            _logger.info(f"Skipping shipment update - last shipment is Done for order {self.name}")
+            return True
+        return False
+    
+    def _process_producteca_shipments(self):
+        self.picking_ids.producteca_account_id = self.producteca_account_id
+        
+        if self.producteca_shipment_data:
+            shipment_data = safe_eval(self.producteca_shipment_data)
+            
+            if self._should_skip_shipment_update(shipment_data):
+                return
+                
+            self._sync_existing_shipments(shipment_data)
+        else:
+            self._create_new_shipments()
+    
+    def _sync_existing_shipments(self, shipment_data):
+        shipment_per_picking = {shipment.get('id'): shipment for shipment in shipment_data}
+        synced_shipment_ids = set()
+        already_synced_pickings = self.picking_ids.filtered(lambda p: p.producteca_shipment_id in shipment_per_picking.keys())
+        for synced_picking in already_synced_pickings:
+            picking_data = shipment_per_picking.get(synced_picking.producteca_shipment_id)
+            synced_picking._process_picking_with_shipment(picking_data)
+            synced_shipment_ids.add(synced_picking.producteca_shipment_id)
+        
+        unsynced_pickings = self.picking_ids - already_synced_pickings
+        unsynced_shipments = list(filter(lambda s: s[0] not in synced_shipment_ids, shipment_per_picking.items()))
+        for picking in unsynced_pickings:
+            if unsynced_shipments:
+                shipment_id, picking_data = unsynced_shipments.pop(0)
+                picking.producteca_shipment_id = shipment_id
+                picking._process_picking_with_shipment(picking_data)
+    
+    def _create_new_shipments(self):
+        for picking in self.picking_ids:
+            picking = picking.with_delay()._create_producteca_shipment()
+    
+    # TODO: Can shippings be multiple? For example an orden comes from producteca with 3 shippings.abs
+    # We should support this.
+    # TODO: ! I think we do not want this, close order is only for a very specific case
+    # if rec.producteca_id and not rec.producteca_shipment_data:
+    #     rec.action_close_order()
 
     def action_close_order(self):
         client = self.producteca_account_id.get_client()
@@ -102,36 +128,7 @@ class SaleOrder(models.Model):
                     raise UserError("No se pudo actualizar la orden en Producteca")
         return _
 
-    def _compute_delivery_price(self, body):
-        has_delivery = body.get('hasAnyShipments', False)
-        if has_delivery:
-            delivery_price = body.get('totalShippingCost', 0)
-            carrier_product_name = f"Servicio de Entrega: {body.get('shipments')[0].get('method').get('courier')}"
-            delivery_product = self.env['product.product'].sudo().search([('name', '=', carrier_product_name)], limit=1)
-            if delivery_product:
-                product_tax = delivery_product.taxes_id
-                if product_tax:
-                    tax_id = product_tax[0]
-                    delivery_price = delivery_price / (1 + (tax_id.amount/100))
-                return Command.create({
-                    'product_id': delivery_product.id,
-                    'product_uom_qty': 1,
-                    'price_unit': delivery_price,
-                    'name': delivery_product.display_name,
-                })
-            else:
-                delivery_product = self.env['product.product'].create({
-                    'name': carrier_product_name,
-                    'type': 'service',
-                    'invoice_policy': 'order',
-                })
-            return Command.create({
-                'product_id': delivery_product.id,
-                'product_uom_qty': 1,
-                'price_unit': delivery_price,
-                'name': delivery_product.display_name,
-            })
-        return
+
 
     def _mapped_origin_application(self, sale_channel_id):
         app_mapping = {
@@ -220,6 +217,24 @@ class SaleOrder(models.Model):
             warehouse = account.warehouse_ids.filtered(lambda x: x.producteca_warehouse_name == warehouse_name).id
         return warehouse
 
+    def _handle_missing_product(self, line, account):
+        producteca_body_queue = line.get('variation') | line.get('product')
+        producteca_body_queue.update({
+            "variation_id": int(line.get('variation', {}).get('id'))
+        })
+        # if account.is_product_price_modified_by_producteca:
+        #     producteca_body_queue.update({
+        #         "product_price": float(line.get('price', 0) / line.get('quantity', 1))
+        #     })
+        #     _logger.info("producteca product price to sync: " + str(line.get('price', 0) / line.get('quantity', 1)))
+        odoo_product = self.env['product.product'].search([('default_code', '=', producteca_body_queue['sku'])], limit=1)
+        if odoo_product:
+            odoo_product._update_product_from_producteca(account, producteca_body_queue, odoo_product)
+            product = odoo_product
+        if not product:
+            product = self.env['product.product']._create_product_from_producteca(account, producteca_body_queue)
+        return product
+
     def _process_sale_order_lines(self, lines, warehouse, order_lines, account):
         sale_order_lines = []
         for line in lines:
@@ -228,14 +243,10 @@ class SaleOrder(models.Model):
             variation_id = line.get('variation', {}).get('id')
             connection = self.env['producteca.product.connections'].search([(
                                 'producteca_id', '=', str(product_id)), ('producteca_variation_id', '=', str(variation_id)),
-                                ('producteca_account_id', '=', account.id)])
+                                ('producteca_account_id', '=', account.id)], limit=1)
             product = connection.product_id
             if not product:
-                producteca_body_queue = line.get('variation') | line.get('product')
-                producteca_body_queue.update({
-                    "variation_id": int(line.get('variation', {}).get('id'))
-                })
-                product = self.env['product.product']._create_product_from_producteca(account, producteca_body_queue)
+                product = self._handle_missing_product(line, account)
 
             product_tax = product.taxes_id
             unit_price = line.get('price', 0)
@@ -244,6 +255,8 @@ class SaleOrder(models.Model):
                 tax_id = product_tax[0]
                 # TODO: If it is percentage, possibly better to use a compute and calculate this different
                 unit_price = line.get('price', 0) / (1 + (tax_id.amount/100))
+            # if account.is_product_price_modified_by_producteca:
+            #     product.list_price = unit_price / float(line.get('quantity', 1))
             if product.id in order_lines:
                 sale_order_lines.append(Command.update(order_lines[product.id], {
                     'product_uom_qty': line.get('quantity', 0),
@@ -259,14 +272,44 @@ class SaleOrder(models.Model):
                 }))
         return sale_order_lines
 
-    def _get_partner_id(self, body):
+    def _handle_delivery_line(self, body, order_lines):
+        carrier_product_name = f"Servicio de Entrega: {body.get('shipments')[0].get('method').get('courier')}"
+        delivery_product = self.env['product.product'].sudo().search([('name', '=', carrier_product_name)], limit=1)
+        
+        if not delivery_product:
+            delivery_product = self.env['product.product'].create({
+                'name': carrier_product_name,
+                'type': 'service',
+                'invoice_policy': 'order',
+            })
+        
+        delivery_price = body.get('totalShippingCost', 0)
+        product_tax = delivery_product.taxes_id
+        if product_tax:
+            tax_id = product_tax[0]
+            delivery_price = delivery_price / (1 + (tax_id.amount/100))
+        
+        if delivery_product.id in order_lines:
+            return Command.update(order_lines[delivery_product.id], {
+                'product_uom_qty': 1,
+                'price_unit': delivery_price,
+            })
+        else:
+            return Command.create({
+                'product_id': delivery_product.id,
+                'product_uom_qty': 1,
+                'price_unit': delivery_price,
+                'name': delivery_product.display_name,
+            })
+
+    def _get_partner_id(self, body, account):
         partner_id = None
-        if not body.get('contactId'):
+        if not body.get('contact'):
             partner_id = self.env.ref('producteca_connector.producteca_contact')
         if not partner_id:
-            partner_id = self.env['res.partner'].sudo().search([('producteca_id', '=', body.get('contactId')), ('parent_id', '!=', False)], limit=1)
+            partner_id = self.env['res.partner'].sudo().search([('producteca_id', '=', body.get('contact')), ('parent_id', '!=', False)], limit=1)
         if not partner_id:
-            partner_id = self.env['res.partner']._create_producteca_partner(body.get('orderId'), self.producteca_account_id)
+            partner_id = self.env['res.partner']._create_producteca_partner(body.get('id'), account)
         return partner_id
         
     def _get_cart_id(self, body):
@@ -285,9 +328,11 @@ class SaleOrder(models.Model):
         warehouse = self._get_warehouse(body.get('warehouse'), account)
         sale_order_lines = self._process_sale_order_lines(lines, warehouse, order_lines, account)
         if body.get('hasAnyShipments', False):
-            sale_order_lines.append(self._compute_delivery_price(body))
-        origin_platform = self._mapped_origin_application(body.get('salesChannel'))
-        partner_id = self._get_partner_id(body)
+            delivery_line = self._handle_delivery_line(body, order_lines)
+            if delivery_line:
+                sale_order_lines.append(delivery_line)
+        origin_platform = self._mapped_origin_application(int(body.get('channel', 0)))
+        partner_id = self._get_partner_id(body, account)
         sale_order_dict = {
             'partner_id': partner_id.id,
             'order_line': sale_order_lines,
@@ -341,7 +386,7 @@ class SaleOrder(models.Model):
         if not order_id:
             raise Exception("No se encontro el id de la orden")
         if order:
-            order_lines = {line.product_id.id: line.id for line in self.order_line}
+            order_lines = {line.product_id.id: line.id for line in order.order_line}
             sale_order_dict = self._prepare_sale_order_dict(body, account, order_lines)
             order.sudo().write(sale_order_dict)
         else:
