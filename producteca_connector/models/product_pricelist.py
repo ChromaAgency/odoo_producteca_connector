@@ -20,12 +20,14 @@ class ProductPricelist(models.Model):
         
         _logger.info(f"Syncing price for product: {sync_data}")
 
-        # result = product_service.synchronize(sync_data)
-        # _logger.info(f"Sync result: {result}")
-        # return result
+        result = product_service.synchronize(sync_data)
+        _logger.info(f"Sync result: {result}")
+        return result
 
-    def _sync_prices_for_account(self, account_id):
+    def _sync_prices_for_account(self, account_id, pricelist_id):
+        """Sincroniza precios para una cuenta específica y una pricelist específica"""
         account = self.env['producteca.account'].browse(account_id)
+        pricelist = self.browse(pricelist_id)
         
         account_data = {
             'api_key': account.api_key,
@@ -34,8 +36,8 @@ class ProductPricelist(models.Model):
         }
         
         pricelist_data = {
-            'currency': "Usd" if account.pricelist_to_sync.currency_id.name == 'USD' else "Local",
-            'name': account.pricelist_to_sync.producteca_pricelist_name
+            'currency': "Usd" if pricelist.currency_id.name == 'USD' else "Local",
+            'name': pricelist.producteca_pricelist_name
         }
         
         producteca_connections = self.env['producteca.product.connections'].search([
@@ -45,7 +47,7 @@ class ProductPricelist(models.Model):
         for connection in producteca_connections:
             product = connection.product_id
             
-            price = account.pricelist_to_sync._get_product_price(product, 1)
+            price = pricelist._get_product_price(product, 1)
             if price:
                 sync_data = {
                     'sku': product.default_code,
@@ -64,9 +66,9 @@ class ProductPricelist(models.Model):
         producteca_accounts = self.env['producteca.account'].search([
             ('active', '=', True),
             ('is_odoo_able_to_update_producteca_prices', '=', True),
-            ('pricelist_to_sync', '!=', False)
+            ('pricelist_ids', '!=', False)
         ])
         
         for account in producteca_accounts:
-            pricelist = account.pricelist_to_sync
-            pricelist._sync_prices_for_account(account.id)
+            for pricelist in account.pricelist_ids:
+                pricelist.with_delay()._sync_prices_for_account(account.id, pricelist.id)

@@ -1,5 +1,6 @@
 from odoo import models, fields, api
 from odoo.tools.translate import _
+from odoo.exceptions import ValidationError
 from producteca import ProductecaClient
 import logging
 
@@ -26,7 +27,7 @@ class ProductecaAccountConfig(models.Model):
     warehouse_ids = fields.Many2many('stock.warehouse', string='Warehouse Location')
     default_warehouse_id = fields.Many2one('stock.warehouse', string='Default Warehouse', required=True)
 
-    pricelist_to_sync = fields.Many2one('product.pricelist', string='Pricelist to Sync in Producteca')
+    pricelist_ids = fields.Many2many('product.pricelist', string='Pricelists to Sync in Producteca')
     is_stock_modified_by_producteca = fields.Boolean(string='Is Stock Modified by Producteca?')
     is_product_price_modified_by_producteca = fields.Boolean(string='Is Product Price Modified by Producteca?')
     is_producteca_able_to_create_products = fields.Boolean(string='Is Producteca Able to Create Products?')
@@ -40,6 +41,18 @@ class ProductecaAccountConfig(models.Model):
          'CHECK(NOT(is_product_price_modified_by_producteca = true AND is_odoo_able_to_update_producteca_prices = true))',
          'Only one price synchronization option can be active at a time. Either Producteca modifies product prices OR Odoo updates Producteca prices, but not both.')
     ]
+
+    @api.constrains('pricelist_ids')
+    def _check_default_pricelist(self):
+        """Verifica que la primera pricelist tenga 'Default' como producteca_pricelist_name"""
+        for record in self:
+            if record.pricelist_ids:
+                first_pricelist = record.pricelist_ids.sorted('id')[0]
+                if not first_pricelist.producteca_pricelist_name or first_pricelist.producteca_pricelist_name != 'Default':
+                    raise ValidationError(
+                        _("The first pricelist must have 'Default' as Producteca Pricelist Name. "
+                          "Please set the Producteca Pricelist Name to 'Default' for: %s") % first_pricelist.name
+                    )
 
     def get_client(self):
         return ProductecaClient(api_key=self.api_key, token=self.bearer_token)
