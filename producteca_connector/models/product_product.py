@@ -126,7 +126,7 @@ class ProductProduct(models.Model):
                 if producteca_response.get('sku', False):
                     vals['default_code'] = producteca_response['sku']
             if producteca_response.get('product_price', False):            
-                vals['list_price'] = float(producteca_response.get('product_price'))
+                vals['lst_price'] = float(producteca_response.get('product_price'))
             if producteca_response.get('brand'):
                 brand = self.env['product.brand'].sudo().search([('name', '=', producteca_response.get('brand'))], limit=1)
                 if brand:
@@ -240,9 +240,9 @@ class ProductProduct(models.Model):
                     'priceList': pricelist_name
                 })
         else:            
-            if product.list_price:
+            if product.lst_price:
                 product_prices.append({
-                    'amount': product.list_price,
+                    'amount': product.lst_price,
                     'currency': product.currency_id.name,
                     'priceList': 'Default'
                 })

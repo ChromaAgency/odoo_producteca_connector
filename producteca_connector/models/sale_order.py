@@ -262,7 +262,7 @@ class SaleOrder(models.Model):
                 # TODO: If it is percentage, possibly better to use a compute and calculate this different
                 unit_price = line.get('price', 0) / (1 + (tax_id.amount/100))
             if account.is_product_price_modified_by_producteca:
-                product.list_price = unit_price / float(line.get('quantity', 1))
+                product.lst_price = unit_price / float(line.get('quantity', 1))
             if product.id in order_lines:
                 sale_order_lines.append(Command.update(order_lines[product.id], {
                     'product_uom_qty': line.get('quantity', 0),
