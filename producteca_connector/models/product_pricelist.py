@@ -1,5 +1,6 @@
 from odoo import models, fields, api
 from odoo.tools.translate import _
+from odoo.exceptions import ValidationError
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -9,6 +10,24 @@ class ProductPricelist(models.Model):
     _inherit = 'product.pricelist'
 
     producteca_pricelist_name = fields.Char(string="Producteca Pricelist Name")
+
+    @api.constrains('producteca_pricelist_name')
+    def _check_producteca_name_not_default(self):
+        """No permitir 'Default' como nombre de lista de precios, se maneja automáticamente"""
+        for record in self:
+            if record.producteca_pricelist_name and record.producteca_pricelist_name.lower() == 'default':
+                raise ValidationError(
+                    _("Cannot use 'Default' as Producteca Pricelist Name. "
+                      "The default pricelist is handled automatically by the system.")
+                )
+
+    def _get_producteca_pricelist_name(self, account):
+        """Obtiene el nombre correcto para la pricelist en producteca"""
+        if account.default_pricelist_id and self.id == account.default_pricelist_id.id:
+            return "Default"
+        return self.producteca_pricelist_name
+
+
 
     def _sync_single_product_price(self, account_data, sync_data):
         """Método que se ejecuta en la cola para sincronizar un producto individual"""
@@ -24,20 +43,14 @@ class ProductPricelist(models.Model):
         _logger.info(f"Sync result: {result}")
         return result
 
-    def _sync_prices_for_account(self, account_id, pricelist_id):
-        """Sincroniza precios para una cuenta específica y una pricelist específica"""
+    def _sync_prices_for_account(self, account_id, pricelist_id=None, use_list_price=False):
+        """Sincroniza precios para una cuenta específica y una pricelist específica o usando list_price"""
         account = self.env['producteca.account'].browse(account_id)
-        pricelist = self.browse(pricelist_id)
         
         account_data = {
             'api_key': account.api_key,
             'bearer_token': account.bearer_token,
             'create_if_dosnt_exist': account.create_if_dosnt_exist
-        }
-        
-        pricelist_data = {
-            'currency': "Usd" if pricelist.currency_id.name == 'USD' else "Local",
-            'name': pricelist.producteca_pricelist_name
         }
         
         producteca_connections = self.env['producteca.product.connections'].search([
@@ -47,28 +60,60 @@ class ProductPricelist(models.Model):
         for connection in producteca_connections:
             product = connection.product_id
             
-            price = pricelist._get_product_price(product, 1)
-            if price:
-                sync_data = {
-                    'sku': product.default_code,
-                    'name': product.name,
-                    'prices': [{
-                        'amount': price,
-                        'currency': pricelist_data['currency'],
-                        'priceList': pricelist_data['name']
-                    }]
-                }
+            if use_list_price:
+                # Caso: usar list_price como Default cuando no hay lista por defecto configurada
+                if product.list_price:
+                    sync_data = {
+                        'sku': product.default_code,
+                        'name': product.name,
+                        'prices': [{
+                            'amount': product.list_price,
+                            'currency': product.currency_id.name,
+                            'priceList': 'Default'
+                        }]
+                    }
+                    self.with_delay()._sync_single_product_price(account_data, sync_data)
+            else:
+                # Caso: usar pricelist específica
+                pricelist = self.browse(pricelist_id)
+                pricelist_name = pricelist._get_producteca_pricelist_name(account)
                 
-                self.with_delay()._sync_single_product_price(account_data, sync_data)
+                # Si no tiene nombre válido para producteca, saltar
+                if not pricelist_name:
+                    _logger.warning(f"Pricelist {pricelist.name} (ID: {pricelist.id}) no tiene producteca_pricelist_name configurado. Saltando sincronización.")
+                    continue
+                
+                price = pricelist._get_product_price(product, 1)
+                if price:
+                    sync_data = {
+                        'sku': product.default_code,
+                        'name': product.name,
+                        'prices': [{
+                            'amount': price,
+                            'currency': "Usd" if pricelist.currency_id.name == 'USD' else "Local",
+                            'priceList': pricelist_name
+                        }]
+                    }
+                    self.with_delay()._sync_single_product_price(account_data, sync_data)
 
-    @api.model
+    @api.model  
     def cron_sync_all_pricelists_to_producteca(self):
         producteca_accounts = self.env['producteca.account'].search([
             ('active', '=', True),
-            ('is_odoo_able_to_update_producteca_prices', '=', True),
-            ('pricelist_ids', '!=', False)
+            ('is_odoo_able_to_update_producteca_prices', '=', True)
         ])
         
         for account in producteca_accounts:
+            # Sincronizar lista por defecto si existe
+            if account.default_pricelist_id:
+                account.default_pricelist_id.with_delay()._sync_prices_for_account(account.id, account.default_pricelist_id.id)
+            else:
+                # Si no hay lista por defecto pero el setting está activo, sincronizar usando list_price
+                self.with_delay()._sync_prices_for_account(account.id, use_list_price=True)
+            
+            # Sincronizar listas adicionales (solo las que tengan producteca_pricelist_name)
             for pricelist in account.pricelist_ids:
-                pricelist.with_delay()._sync_prices_for_account(account.id, pricelist.id)
+                if pricelist.producteca_pricelist_name:
+                    pricelist.with_delay()._sync_prices_for_account(account.id, pricelist.id)
+                else:
+                    _logger.warning(f"Pricelist {pricelist.name} (ID: {pricelist.id}) no tiene producteca_pricelist_name configurado. Saltando sincronización.")

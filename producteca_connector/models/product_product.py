@@ -16,27 +16,6 @@ class ProductProduct(models.Model):
     is_already_sync = fields.Boolean(string="Is Already Sync", readonly=True, copy=False)
     producteca_connection_ids = fields.One2many('producteca.product.connections', 'product_id', string="Producteca Connection")
 
-    # ! if this runs we are modyfing the price of a pricelist instead the defualt (because they use only ione list)
-
-    # def _update_product_price(self):
-    #     # TODO: Check why 3 queues are getting generated when running this method
-    #     producteca_connection = self.env['producteca.product.connections'].sudo().search([('product_id', '=', self.id)])
-    #     client = producteca_connection.producteca_account_id.get_client()
-    #     body_dict = {
-    #         "code": str(producteca_connection.product_id.id), "sku": producteca_connection.producteca_id,
-    #         "prices": [{"amount": self.list_price, "currency": producteca_connection.product_id.currency_id.name, "priceList": "Default"}]
-    #     }
-    #     product_service = client.Product
-    #     product_service.create_if_it_doesnt_exist = producteca_connection.producteca_account_id.create_if_dosnt_exist
-    #     product_service.synchronize(body_dict)
-
-    # def write(self, vals):
-    #     _ = super().write(vals)
-    #     for rec in self:
-    #         if rec.is_producteca_product and 'list_price' in vals:
-    #             rec.with_delay()._update_product_price()
-    #     return _
-
     # TODO: Change this for produceteca_response
     def _handle_producteca_attribute_dict(self, producteca_response, odoo_product):
         existing_lines = odoo_product.attribute_line_ids if odoo_product else []
@@ -247,96 +226,110 @@ class ProductProduct(models.Model):
         })
         return self.env['producteca.product.connections'].create(connection_array_dict)
 
-    def _obtain_pricelist_for_product(self, product, account):
-        pricelists = self.env['product.pricelist'].search([('company_id', '=', product.company_id.id), ('active', '=', True), ('currency_id', '=', product.currency_id.id),('id', 'in', account.pricelist_ids.ids)])
-        product_in_pricelist = []
-        if not pricelists:
-            return []
-        for item in pricelists.item_ids:
-            # Change this to compute the pricelist
-            if item.display_applied_on == '1_product' and product.product_tmpl_id.id == item.product_tmpl_id.id:
-                product_in_pricelist.append(item)
-            elif item.display_applied_on == '2_product_category' and product.categ_id.id == item.categ_id.id:
-                product_in_pricelist.append(item)
-            else:
-                continue
-        return product_in_pricelist
+    def _obtain_pricelist_for_product(self, product, account):        
+        if not account.is_odoo_able_to_update_producteca_prices:
+            return []            
+        product_prices = []      
+        
+        if account.default_pricelist_id:
+            price = account.default_pricelist_id._get_product_price(product, 1)
+            pricelist_name = account.default_pricelist_id._get_producteca_pricelist_name(account)
+            if price and pricelist_name:
+                product_prices.append({
+                    'amount': price,
+                    'currency': account.default_pricelist_id.currency_id.name,
+                    'priceList': pricelist_name
+                })
+        else:            
+            if product.list_price:
+                product_prices.append({
+                    'amount': product.list_price,
+                    'currency': product.currency_id.name,
+                    'priceList': 'Default'
+                })
+        for pricelist in account.pricelist_ids:
+            pricelist_name = pricelist._get_producteca_pricelist_name(account)
+            if pricelist_name:  
+                price = pricelist._get_product_price(product, 1)
+                if price:
+                    product_prices.append({
+                        'amount': price,
+                        'currency': pricelist.currency_id.name,
+                        'priceList': pricelist_name
+                    })
+            
+        return product_prices
 
     def _obtain_stocks_for_product(self, product, account):
         stock_by_warehouse = self.env['stock.quant'].search([('product_id', '=', product.id), ('location_id.usage', '=', 'internal'), ('warehouse_id', 'in', account.warehouse_ids.ids)])
         return stock_by_warehouse
 
-    # def _prepare_producteca_product_dict(self, product, account):
-    #     pricelists = self._obtain_pricelist_for_product(product, account)
-    #     stock_by_warehouse = self._obtain_stocks_for_product(product, account)
-    #     image_url = f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{product.id}"
-    #     deals = None  # TODO: Add deals data based on loyalty modules, or something else.
-    #     product_data = {
-    #         "sku": product.default_code,
-    #         "code": str(product.id),
-    #         "name": product.name,
-    #         "barcode": product.barcode or None,
-    #         "attributes": [
-    #                 {"key": variant.attribute_id.name, "value": variant.name}
-    #                 for variant in product.product_template_variant_value_ids
-    #                     ] if product.product_template_variant_value_ids else None,
-    #         "tags": [
-    #             tag.name for tag in product.product_tag_ids
-    #                 ] if product.product_tag_ids else None,
-    #         "category": product.categ_id.complete_name,
-    #         "brand": product.product_brand_id.name if product.product_brand_id else None,
-    #         "notes": product.description if product.description else None,
-    #         "pictures": [{"url": image_url}] if image_url else []
-    #     }
-    #     if product.weight:
-    #         product_data.update({
-    #             "dimensions": {
-    #                 "weight": product.weight if product.weight else 0,
-    #                 "width": 0,
-    #                 "height": 0,
-    #                 "length": 0,  # TODO: This could be gotten from packs
-    #                 "pieces": 0,
-    #             }})
-    #     if stock_by_warehouse:
-    #         product_data.update({
-    #             "stocks": [
-    #                 {
-    #                     "quantity": stock.quantity,
-    #                     "availableQuantity": stock.available_quantity,
-    #                     "warehouse": stock.warehouse_id.producteca_warehouse_name if stock.warehouse_id else None
-    #                 } for stock in stock_by_warehouse]
-    #         })
-    #     if deals:
-    #         product_data.update({
-    #             "deals": deals
-    #         })
-    #     if pricelists:
-    #         product_data.update({
-    #             "prices": [
-    #                 {
-    #                     "amount": item.fixed_price,
-    #                     "currency": item.currency_id.name,
-    #                     "priceList": item.pricelist_id.name
-    #                 } for item in pricelists]
-    #         })
-    #     return {k: v for k, v in product_data.items() if v is not None}
+    def _prepare_producteca_product_dict(self, product, account):
+        pricelists = self._obtain_pricelist_for_product(product, account)
+        stock_by_warehouse = self._obtain_stocks_for_product(product, account)
+        image_url = f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{product.id}"
+        deals = None  # TODO: Add deals data based on loyalty modules, or something else.
+        product_data = {
+            "sku": product.default_code,
+            "code": str(product.id),
+            "name": product.name,
+            "barcode": product.barcode or None,
+            "attributes": [
+                    {"key": variant.attribute_id.name, "value": variant.name}
+                    for variant in product.product_template_variant_value_ids
+                        ] if product.product_template_variant_value_ids else None,
+            "tags": [
+                tag.name for tag in product.product_tag_ids
+                    ] if product.product_tag_ids else None,
+            "category": product.categ_id.complete_name if product.categ_id else None,
+            "brand": product.product_brand_id.name if product.product_brand_id else None,
+            "notes": product.description if product.description else None,
+            "pictures": [{"url": image_url}] if image_url else []
+        }
+        if product.weight:
+            product_data.update({
+                "dimensions": {
+                    "weight": product.weight if product.weight else 0,
+                    # "width": 0,
+                    # "height": 0,
+                    # "length": 0,  # TODO: This could be gotten from packs
+                    # "pieces": 0,
+                }})
+        if stock_by_warehouse:
+            product_data.update({
+                "stocks": [
+                    {
+                        "quantity": stock.quantity,
+                        "availableQuantity": stock.available_quantity,
+                        "warehouse": stock.warehouse_id.producteca_warehouse_name if stock.warehouse_id else None
+                    } for stock in stock_by_warehouse]
+            })
+        if deals:
+            product_data.update({
+                "deals": deals
+            })
+        if pricelists:
+            product_data.update({
+                "prices": pricelists
+            })
+        return {k: v for k, v in product_data.items() if v is not None}
 
-    # TODO: add a create method to trigger this
-    # def create_product_in_producteca_queue(self):
-    #     producteca_account_ids = self.env['producteca.account'].sudo().search([('active', '=', True), ('company_id', '=', self.env.company.id)])
-    #     if not producteca_account_ids:
-    #         return False
-    #     products = self.env['product.product'].sudo().search([('is_producteca_product', '=', True), ('is_already_sync', '=', False)])
-    #     if not products:
-    #         return False
-    #     for product in products:
-    #         for account in producteca_account_ids:
-    #             if not account.create_if_dosnt_exist:
-    #                 continue
-    #             product_dict = self._prepare_producteca_product_dict(product, account)
-    #             self.with_delay()._create_product_in_producteca(account, product_dict)
-    #     products.write({'is_already_sync': True})
-    #     return True
+    #TODO: add a create method to trigger this
+    def create_product_in_producteca_queue(self):
+        producteca_account_ids = self.env['producteca.account'].sudo().search([('active', '=', True), ('company_id', '=', self.env.company.id)])
+        if not producteca_account_ids:
+            return False
+        products = self.env['product.product'].sudo().search([('is_producteca_product', '=', True), ('is_already_sync', '=', False)])
+        if not products:
+            return False
+        for product in products:
+            for account in producteca_account_ids:
+                if not account.create_if_dosnt_exist:
+                    continue
+                product_dict = self._prepare_producteca_product_dict(product, account)
+                self.with_delay()._create_product_in_producteca(account, product_dict)
+        products.write({'is_already_sync': True})
+        return True
 
     def sync_all_products_from_producteca(self):
         producteca_accounts = self.env['producteca.account'].sudo().search([('active', '=', True)])

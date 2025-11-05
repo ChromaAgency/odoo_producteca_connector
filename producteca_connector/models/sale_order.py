@@ -222,11 +222,17 @@ class SaleOrder(models.Model):
         producteca_body_queue.update({
             "variation_id": int(line.get('variation', {}).get('id'))
         })
-        # if account.is_product_price_modified_by_producteca:
-        #     producteca_body_queue.update({
-        #         "product_price": float(line.get('price', 0) / line.get('quantity', 1))
-        #     })
-        #     _logger.info("producteca product price to sync: " + str(line.get('price', 0) / line.get('quantity', 1)))
+        if account.is_product_price_modified_by_producteca:
+            unit_price = line.get('price', 0) / line.get('quantity', 1)            
+            temp_product = self.env['product.product'].search([('default_code', '=', producteca_body_queue.get('sku'))], limit=1)
+            if temp_product and temp_product.taxes_id:
+                tax_id = temp_product.taxes_id[0]
+                unit_price = unit_price / (1 + (tax_id.amount/100))
+            
+            producteca_body_queue.update({
+                "product_price": float(unit_price)
+            })
+            _logger.info("producteca product price to sync (after tax calculation): " + str(unit_price))
         odoo_product = self.env['product.product'].search([('default_code', '=', producteca_body_queue['sku'])], limit=1)
         if odoo_product:
             odoo_product._update_product_from_producteca(account, producteca_body_queue, odoo_product)
@@ -255,8 +261,8 @@ class SaleOrder(models.Model):
                 tax_id = product_tax[0]
                 # TODO: If it is percentage, possibly better to use a compute and calculate this different
                 unit_price = line.get('price', 0) / (1 + (tax_id.amount/100))
-            # if account.is_product_price_modified_by_producteca:
-            #     product.list_price = unit_price / float(line.get('quantity', 1))
+            if account.is_product_price_modified_by_producteca:
+                product.list_price = unit_price / float(line.get('quantity', 1))
             if product.id in order_lines:
                 sale_order_lines.append(Command.update(order_lines[product.id], {
                     'product_uom_qty': line.get('quantity', 0),
