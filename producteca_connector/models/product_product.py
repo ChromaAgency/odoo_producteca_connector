@@ -114,18 +114,19 @@ class ProductProduct(models.Model):
         if not account.is_producteca_able_to_modified_products:
             return vals
         if account.is_producteca_able_to_modified_products or not odoo_product:
-            vals = {
+            vals.update({
                 'description': producteca_response.get('notes'),
                 'is_producteca_product': True,
                 'is_already_sync': True,
-            }
+            })
             if not odoo_product:
-                vals['default_code'] = producteca_response['sku']
                 name = producteca_response.get('name', False)
                 if not name:
-                    name = 'Unnamed Producteca Product with ID ' + str(producteca_response.get('id'))
+                    raise Exception("El producto de Producteca no tiene nombre asignado. Por favor, verifique en Producteca.")
                 vals['name'] = name
                 vals['is_storable'] = True
+                if producteca_response.get('sku', False):
+                    vals['default_code'] = producteca_response['sku']
             if producteca_response.get('product_price', False):            
                 vals['list_price'] = float(producteca_response.get('product_price'))
             if producteca_response.get('brand'):
