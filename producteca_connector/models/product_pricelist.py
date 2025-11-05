@@ -67,7 +67,7 @@ class ProductPricelist(models.Model):
                         'name': product.name,
                         'prices': [{
                             'amount': product.lst_price,
-                            'currency': product.currency_id.name,
+                            'currency': "Usd" if pricelist.company_id.currency_id.name == 'USD' else "Local",
                             'priceList': 'Default'
                         }]
                     }
