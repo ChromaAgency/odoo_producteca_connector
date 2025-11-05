@@ -111,8 +111,6 @@ class ProductProduct(models.Model):
         connection_ids = self._handle_producteca_connection_ids(producteca_response, odoo_product, account)
         if connection_ids:
             vals['producteca_connection_ids'] = connection_ids
-        if not account.is_producteca_able_to_modified_products:
-            return vals
         if account.is_producteca_able_to_modified_products or not odoo_product:
             vals.update({
                 'description': producteca_response.get('notes'),
