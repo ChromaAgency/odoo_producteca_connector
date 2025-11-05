@@ -64,7 +64,6 @@ class ProductPricelist(models.Model):
                 if product.lst_price:
                     sync_data = {
                         'sku': product.default_code,
-                        'name': product.name,
                         'prices': [{
                             'amount': product.lst_price,
                             'currency': "Usd" if account.company_id.currency_id.name == 'USD' else "Local",
@@ -84,7 +83,6 @@ class ProductPricelist(models.Model):
                 if price:
                     sync_data = {
                         'sku': product.default_code,
-                        'name': product.name,
                         'prices': [{
                             'amount': price,
                             'currency': "Usd" if pricelist.currency_id.name == 'USD' else "Local",
