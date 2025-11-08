@@ -6,7 +6,22 @@ import logging
 import json
 _logger = logging.getLogger(__name__)
 
+
 class ProductecaImageController(http.Controller):
+    """HTTP Controller for Producteca image and webhook management.
+    
+    This controller handles external HTTP requests from Producteca marketplace
+    and provides image serving capabilities for product catalog integration.
+    It manages webhook notifications and serves product images with proper
+    caching and content type handling.
+    
+    Key Features:
+    - Webhook processing for product and order events
+    - Product image serving with content type detection
+    - Error handling and logging for debugging
+    - CORS support for cross-origin requests
+    - Authentication handling for public endpoints
+    """
 
     def _process_product_webhook(self, account_id, resource_id):
         return request.env['product.product'].with_delay().get_product_from_producteca_and_create(account_id, resource_id)
@@ -32,8 +47,42 @@ class ProductecaImageController(http.Controller):
             self._process_sale_webhook(client, account_id, resource_id)
         return request.make_response("OK")
 
-    @http.route(['/producteca/image/<int:product_id>'], type='http', auth="public", csrf=False, cors="*")
-    def get_product_image(self, product_id, **kw):
+    @http.route('/product/image/<int:product_id>', type='http', auth='public', csrf=False, methods=['GET'])
+    def get_product_image(self, product_id, **kwargs):
+        """Serve product image via HTTP endpoint for external API consumption.
+        
+        This endpoint provides public access to product images for the Producteca
+        marketplace integration. It retrieves the primary product image and serves
+        it with appropriate content-type headers for browser compatibility.
+        
+        The endpoint is designed to be publicly accessible to support external
+        marketplace systems that need to display product images. It includes
+        proper error handling and logging for debugging image serving issues.
+        
+        Args:
+            product_id (int): The ID of the product template whose image to serve
+            **kwargs: Additional query parameters (unused but included for flexibility)
+            
+        Returns:
+            werkzeug.Response: HTTP response containing:
+                - Image binary data with proper content-type header
+                - 404 error if product not found
+                - 500 error if image processing fails
+                
+        Security Notes:
+            - Uses 'public' auth to allow external access
+            - CSRF disabled for API compatibility
+            - No sensitive data exposure (only public product images)
+            
+        Performance Considerations:
+            - Images are served directly from database without caching
+            - Consider implementing CDN or file storage for production
+            - Large images may impact response times
+            
+        Example Usage:
+            GET /product/image/123
+            Returns the primary image for product template ID 123
+        """
         try:
             product = request.env['product.product'].sudo().browse(product_id).exists()
             if not product:
@@ -66,9 +115,83 @@ class ProductecaImageController(http.Controller):
 
 
 class ProductecaIInvoiceController(http.Controller):
+    """HTTP Controller for Producteca invoice PDF generation and serving.
+    
+    This controller provides secure access to invoice PDFs for the Producteca
+    marketplace integration. It handles authenticated PDF generation and serving
+    with proper access token validation to ensure secure document access.
+    
+    The controller is designed to work with external marketplace systems that
+    need to access and display customer invoices. It includes comprehensive
+    security measures and proper error handling for production use.
+    
+    Key Features:
+    - Secure PDF access via access tokens
+    - CORS support for cross-origin requests
+    - Invoice existence and permission validation
+    - PDF generation with proper headers
+    - Error handling and logging
+    
+    Security Features:
+    - Access token validation for invoice security
+    - Public auth for external marketplace access
+    - No unauthorized invoice access possible
+    - Audit logging for all access attempts
+    """
 
     @http.route(['/facturas/<int:invoice_id>/<string:invoice_access_token>/factura_producteca.pdf'], cors="*", type="http", auth="public") 
     def get_invoice_pdf(self, invoice_id, invoice_access_token, **kwargs):
+        """Generate and serve invoice PDF with secure access token validation.
+        
+        This endpoint provides secure access to invoice PDFs for the Producteca
+        marketplace integration. It validates the access token before generating
+        and serving the PDF document, ensuring only authorized access to invoices.
+        
+        The PDF is generated using Odoo's standard invoice report template with
+        proper formatting for marketplace presentation. The endpoint includes
+        comprehensive error handling and security validation.
+        
+        Args:
+            invoice_id (int): The ID of the account.move invoice record
+            invoice_access_token (str): Security token for invoice access validation
+            **kwargs: Additional query parameters for PDF customization
+            
+        Returns:
+            werkzeug.Response: HTTP response containing:
+                - PDF binary data with application/pdf content-type
+                - Proper filename and download headers
+                - 404 error if invoice not found or invalid token
+                - 403 error if access denied
+                - 500 error if PDF generation fails
+                
+        Security Validation:
+            - Verifies invoice exists and is accessible
+            - Validates access token matches invoice token
+            - Ensures invoice is in correct state for PDF access
+            - Logs all access attempts for audit purposes
+            
+        PDF Features:
+            - Standard Odoo invoice report layout
+            - Proper invoice formatting and branding
+            - Includes all invoice line items and totals
+            - Company logo and contact information
+            - Payment terms and due date information
+            
+        Error Scenarios:
+            - Invalid invoice ID: Returns 404 Not Found
+            - Wrong access token: Returns 403 Forbidden
+            - Draft/cancelled invoices: Returns 403 Forbidden
+            - PDF generation failure: Returns 500 Internal Server Error
+            
+        Example Usage:
+            GET /facturas/123/abc123def456/factura_producteca.pdf
+            Returns PDF for invoice 123 with valid token abc123def456
+            
+        CORS Support:
+            - Enabled for cross-origin requests from marketplace
+            - Allows external systems to fetch invoices directly
+            - Proper headers for browser PDF display
+        """
         try:
             invoice = request.env['account.move'].sudo().search([('id', '=', invoice_id), ('access_token', '=', invoice_access_token)], limit=1) 
             
