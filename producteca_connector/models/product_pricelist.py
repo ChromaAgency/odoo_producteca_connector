@@ -1,3 +1,4 @@
+from producteca import ProductecaClient
 from odoo import models, fields, api
 from odoo.tools.translate import _
 from odoo.exceptions import ValidationError
@@ -31,7 +32,6 @@ class ProductPricelist(models.Model):
 
     def _sync_single_product_price(self, account_data, sync_data):
         """Método que se ejecuta en la cola para sincronizar un producto individual"""
-        from producteca import ProductecaClient
         
         client = ProductecaClient(api_key=account_data['api_key'], token=account_data['bearer_token'])
         product_service = client.Product
