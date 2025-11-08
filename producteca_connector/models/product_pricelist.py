@@ -66,7 +66,7 @@ class ProductPricelist(models.Model):
                         'sku': product.default_code,
                         'prices': [{
                             'amount': product.lst_price,
-                            'currency': "Usd" if account.company_id.currency_id.name == 'USD' else "Local",
+                            'currency': "Usd" if pricelist.currency_id.id == self.env.ref('base.USD').id else "Local",
                             'priceList': 'Default'
                         }]
                     }
