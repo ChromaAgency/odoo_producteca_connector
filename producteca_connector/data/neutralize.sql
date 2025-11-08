@@ -1,3 +1,3 @@
 UPDATE producteca_account
-SET api_key = ''
-SET bearer_token = '';
+SET api_key = '',
+ bearer_token = '';
