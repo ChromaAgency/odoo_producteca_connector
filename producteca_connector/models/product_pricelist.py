@@ -58,15 +58,23 @@ class ProductPricelist(models.Model):
         ])
         
         for connection in producteca_connections:
-            product = connection.product_id
+            template = connection.product_tmpl_id
+            
+            if not template:
+                continue
             
             if use_list_price:
-                if product.lst_price:
+                if template.list_price:
+                    # Use first variant for image/code reference
+                    first_variant = template.product_variant_ids[0] if template.product_variant_ids else None
+                    if not first_variant:
+                        continue
+                        
                     sync_data = {
-                        'sku': product.default_code,
+                        'sku': first_variant.default_code,
                         'prices': [{
-                            'amount': product.lst_price,
-                            'currency': "Usd" if pricelist.currency_id.id == self.env.ref('base.USD').id else "Local",
+                            'amount': template.list_price,
+                            'currency': "Usd" if account.company_id.currency_id.id == self.env.ref('base.USD').id else "Local",
                             'priceList': 'Default'
                         }]
                     }
@@ -79,10 +87,15 @@ class ProductPricelist(models.Model):
                     _logger.warning(f"Pricelist {pricelist.name} (ID: {pricelist.id}) no tiene producteca_pricelist_name configurado. Saltando sincronización.")
                     continue
                 
-                price = pricelist._get_product_price(product, 1)
+                # Use first variant for price calculation
+                first_variant = template.product_variant_ids[0] if template.product_variant_ids else None
+                if not first_variant:
+                    continue
+                    
+                price = pricelist._get_product_price(first_variant, 1)
                 if price:
                     sync_data = {
-                        'sku': product.default_code,
+                        'sku': first_variant.default_code,
                         'prices': [{
                             'amount': price,
                             'currency': "Usd" if pricelist.currency_id.id == self.env.ref('base.USD').id else "Local",

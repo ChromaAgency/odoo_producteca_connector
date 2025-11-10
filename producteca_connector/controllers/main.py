@@ -24,7 +24,7 @@ class ProductecaImageController(http.Controller):
     """
 
     def _process_product_webhook(self, account_id, resource_id):
-        return request.env['product.product'].with_delay().get_product_from_producteca_and_create(account_id, resource_id)
+        return request.env['product.template'].with_delay().get_product_from_producteca_and_create(account_id, resource_id)
     
     def _process_sale_webhook(self, client, account_id, resource_id):
         sale_order = client.SalesOrder.get(resource_id)

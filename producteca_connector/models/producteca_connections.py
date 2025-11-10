@@ -36,14 +36,15 @@ class ProductecaConnections(models.Model):
         required=True,
         help="Producteca account this connection belongs to. Defines authentication and sync settings."
     )
-    product_id = fields.Many2one(
-        'product.product', 
-        string='Product',
-        help="Odoo product linked to this Producteca marketplace product."
+    product_tmpl_id = fields.Many2one(
+        'product.template', 
+        string='Product Template',
+        help="Odoo product template linked to this Producteca marketplace product."
     )
-    producteca_variation_id = fields.Char(
-        string='Producteca Variation ID',
-        help="Unique identifier for the product variation in Producteca marketplace."
+    product_variant_ids = fields.Many2many(
+        'product.product',
+        string='Product Variants',
+        help="All variants (product.product) belonging to this template connection. Used to track SKUs from Producteca variations."
     )
     producteca_id = fields.Char(
         string='Producteca ID', 
@@ -125,13 +126,19 @@ class ProductecaConnections(models.Model):
         """
         connections = self.env['producteca.product.connections'].sudo().search([])
         for connection in connections:
-            product = connection.product_id
+            template = connection.product_tmpl_id
             account = connection.producteca_account_id
-            if not product.description:
+            if not template or not template.description:
+                continue
+            
+            # Get first variant with SKU for the sync (templates don't have default_code when they have variants)
+            first_variant = template.product_variant_ids.filtered(lambda v: v.default_code)
+            if not first_variant:
+                _logger.warning(f"Template {template.name} (ID: {template.id}) has no variants with SKU. Skipping description sync.")
                 continue
             
             # Convert Markup to string while preserving HTML formatting
-            description_text = str(product.description)
+            description_text = str(template.description)
             
             account_data = {
                 'api_key': account.api_key,
@@ -139,7 +146,7 @@ class ProductecaConnections(models.Model):
                 'create_if_dosnt_exist': account.create_if_dosnt_exist
             }
             product_dict = {
-                "sku": product.default_code,
+                "sku": first_variant[0].default_code,
                 "notes": description_text
             }
 

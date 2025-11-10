@@ -79,7 +79,7 @@ class ProductecaProductsWizard(models.TransientModel):
             - Users can retry failed imports through the UI
         """
         for product in products_to_create:
-            self.env['product.product'].with_delay().get_product_from_producteca_and_create(producteca_account_id, product)
+            self.env['product.template'].with_delay().get_product_from_producteca_and_create(producteca_account_id, product)
 
     def action_obtain_products(self):
         """Execute the product import process with validation and error handling.
@@ -120,15 +120,24 @@ class ProductecaProductsWizard(models.TransientModel):
             - Background processing for better performance
         """
         producteca_products_ids = self.search_text.split(",")
-        connections = self.env['producteca.product.connections'].sudo().search([('producteca_account_id', '=', self.producteca_account_id.id), ('product_id', 'in', producteca_products_ids)])
+        # Search connections by producteca_id (which is the template-level product ID)
+        connections = self.env['producteca.product.connections'].sudo().search([
+            ('producteca_account_id', '=', self.producteca_account_id.id), 
+            ('producteca_id', 'in', producteca_products_ids)
+        ])
         if self.producteca_account_id.is_producteca_able_to_create_products:
-            products_to_create = [int(product_id) for product_id in producteca_products_ids if int(product_id) not in connections.mapped('product_id.id')]
-            self.sudo()._get_and_create_from_wizard(products_to_create, self.producteca_account_id)
+            # Find products that don't have connections yet
+            existing_producteca_ids = connections.mapped('producteca_id')
+            products_to_create = [product_id for product_id in producteca_products_ids if product_id not in existing_producteca_ids]
+            if products_to_create:
+                self.sudo()._get_and_create_from_wizard(products_to_create, self.producteca_account_id)
         else:
             raise UserError('La cuenta de producteca no tiene permiso de crear productos en Odoo')
         if connections and not self.update_if_exists:
-            raise UserError('Los productos %s ya existen en Odoo con lo que no se importarán', ', '.join([str(connection.product_id.name) for connection in connections]))
+            product_names = ', '.join([str(connection.product_tmpl_id.name) for connection in connections if connection.product_tmpl_id])
+            raise UserError('Los productos %s ya existen en Odoo con lo que no se importarán' % product_names)
         if connections and self.update_if_exists:
-            products_to_update = [int(product_id) for product_id in producteca_products_ids if int(product_id) in connections.mapped('product_id.id')]
-            self.sudo()._get_and_create_from_wizard(products_to_update, self.producteca_account_id)
+            products_to_update = connections.mapped('producteca_id')
+            if products_to_update:
+                self.sudo()._get_and_create_from_wizard(products_to_update, self.producteca_account_id)
         return {'type': 'ir.actions.act_window_close'}

@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <list string="Producteca Connections">
                 <field name="producteca_account_id"/>
-                <field name="product_id"/>
+                <field name="product_tmpl_id"/>
                 <field name="producteca_id"/>
             </list>
         </field>
@@ -21,7 +21,7 @@
                 <sheet>
                     <group>
                         <field name="producteca_account_id"/>
-                        <field name="product_id"/>
+                        <field name="product_tmpl_id"/>
                         <field name="producteca_id"/>
                     </group>
                 </sheet>
