@@ -44,7 +44,6 @@ class SaleOrder(models.Model):
     """
     _inherit = "sale.order"
 
-    # Producteca Integration Fields
     producteca_id = fields.Char(
         string="Producteca ID",
         help="Unique identifier of this order in Producteca marketplace."
@@ -274,19 +273,15 @@ class SaleOrder(models.Model):
         return warehouse
 
     def _handle_missing_product(self, line, account):
-        # Get product (template) and variation data
         product_data = line.get('product', {})
         variation_data = line.get('variation', {})
         
-        # Merge variation into product data (variation overrides product for specific fields)
         producteca_body_queue = product_data | variation_data
         
-        # Ensure we keep the product ID (template level) as 'id'
-        # and store variation ID separately
         if product_data.get('id'):
-            producteca_body_queue['id'] = product_data['id']  # Product ID (template in Producteca)
+            producteca_body_queue['id'] = product_data['id']
         if variation_data.get('id'):
-            producteca_body_queue['variation_id'] = int(variation_data['id'])  # Variation ID
+            producteca_body_queue['variation_id'] = int(variation_data['id'])
         
         if account.is_product_price_modified_by_producteca:
             unit_price = line.get('price', 0) / line.get('quantity', 1)            
@@ -301,24 +296,19 @@ class SaleOrder(models.Model):
             _logger.info("producteca product price to sync (after tax calculation): " + str(unit_price))
         
         product = None
-        # Try to find existing variant by SKU
         odoo_variant = self.env['product.product'].search([('default_code', '=', producteca_body_queue.get('sku'))], limit=1)
         if odoo_variant:
             template = odoo_variant.product_tmpl_id
             
-            # If account allows product modification, update product data
-            # Otherwise, only update/create connection (for tracking)
             if account.is_producteca_able_to_modified_products:
                 template._update_product_from_producteca(account, producteca_body_queue, template)
             else:
-                # Only update connection, don't modify product
                 template._update_connection_variants(template, account, producteca_body_queue.get('id'))
                 _logger.info(f"Product {template.name} found but not modified (account doesn't allow modifications). Connection updated.")
             
             product = odoo_variant
         
         if not product:
-            # Check if account allows product creation
             if not account.is_producteca_able_to_create_products:
                 sku = producteca_body_queue.get('sku', 'N/A')
                 raise Exception(
@@ -327,10 +317,8 @@ class SaleOrder(models.Model):
                     f"Por favor, cree el producto manualmente o habilite la opción 'Producteca puede crear productos'."
                 )
             
-            # Create new template and variants
             template = self.env['product.template']._create_product_from_producteca(account, producteca_body_queue)
-            # Get the variant that matches the SKU
-            product = template.product_variant_ids.filtered(lambda v: v.default_code == producteca_body_queue.get('sku'))
+            product = template.product_variant_ids.filtered(lambda v: v.default_code == producteca_body_queue.get('sku'))[:1]
             if not product and template.product_variant_ids:
                 product = template.product_variant_ids[0]
         
@@ -349,16 +337,13 @@ class SaleOrder(models.Model):
                 ('producteca_account_id', '=', account.id)
             ], limit=1)
             
-            # Get specific variant by SKU
             product = None
             if connection and connection.product_tmpl_id:
                 if sku:
-                    # Find the specific variant with this SKU
                     product = connection.product_tmpl_id.product_variant_ids.filtered(
                         lambda v: v.default_code == sku
                     )
                 if not product:
-                    # Fallback to first variant if SKU not found
                     product = connection.product_tmpl_id.product_variant_ids[0] if connection.product_tmpl_id.product_variant_ids else None
             
             if not product:

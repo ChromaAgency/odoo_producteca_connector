@@ -120,13 +120,11 @@ class ProductecaProductsWizard(models.TransientModel):
             - Background processing for better performance
         """
         producteca_products_ids = self.search_text.split(",")
-        # Search connections by producteca_id (which is the template-level product ID)
         connections = self.env['producteca.product.connections'].sudo().search([
             ('producteca_account_id', '=', self.producteca_account_id.id), 
             ('producteca_id', 'in', producteca_products_ids)
         ])
         if self.producteca_account_id.is_producteca_able_to_create_products:
-            # Find products that don't have connections yet
             existing_producteca_ids = connections.mapped('producteca_id')
             products_to_create = [product_id for product_id in producteca_products_ids if product_id not in existing_producteca_ids]
             if products_to_create:

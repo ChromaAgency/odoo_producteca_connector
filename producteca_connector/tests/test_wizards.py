@@ -87,5 +87,4 @@ class TestProductecaWizards(TransactionCase):
             'search_text': 'PROD001',
         })
         
-        # Wizard should be created but action should validate permissions
         self.assertFalse(wizard.producteca_account_id.is_producteca_able_to_create_products)

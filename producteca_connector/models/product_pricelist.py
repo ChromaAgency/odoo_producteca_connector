@@ -65,7 +65,6 @@ class ProductPricelist(models.Model):
             
             if use_list_price:
                 if template.list_price:
-                    # Use first variant for image/code reference
                     first_variant = template.product_variant_ids[0] if template.product_variant_ids else None
                     if not first_variant:
                         continue
@@ -87,7 +86,6 @@ class ProductPricelist(models.Model):
                     _logger.warning(f"Pricelist {pricelist.name} (ID: {pricelist.id}) no tiene producteca_pricelist_name configurado. Saltando sincronización.")
                     continue
                 
-                # Use first variant for price calculation
                 first_variant = template.product_variant_ids[0] if template.product_variant_ids else None
                 if not first_variant:
                     continue

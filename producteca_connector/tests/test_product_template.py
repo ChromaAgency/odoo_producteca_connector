@@ -67,7 +67,6 @@ class TestProductTemplateProducteca(TransactionCase):
 
     def test_03_create_product_from_producteca(self):
         """Test _create_product_from_producteca creates template"""
-        # Allow account to create products
         self.account.is_producteca_able_to_create_products = True
         
         producteca_body = {
@@ -87,7 +86,6 @@ class TestProductTemplateProducteca(TransactionCase):
         self.assertTrue(template)
         self.assertEqual(template.name, 'Created from Producteca')
         
-        # Verify connection was created
         connection = self.env['producteca.product.connections'].search([
             ('product_tmpl_id', '=', template.id),
             ('producteca_account_id', '=', self.account.id),
@@ -103,7 +101,6 @@ class TestProductTemplateProducteca(TransactionCase):
             'type': 'consu',
         })
         
-        # Update account to allow modifications
         self.account.is_producteca_able_to_modified_products = True
         
         producteca_body = {
@@ -121,7 +118,6 @@ class TestProductTemplateProducteca(TransactionCase):
             template
         )
         
-        # Should return True for successful write
         self.assertTrue(result)
 
     def test_05_handle_producteca_attribute_dict(self):
@@ -141,7 +137,6 @@ class TestProductTemplateProducteca(TransactionCase):
             template
         )
         
-        # Method should return list (even if empty)
         self.assertIsInstance(result, list)
 
     def test_06_prepare_producteca_product_dict(self):
@@ -163,7 +158,6 @@ class TestProductTemplateProducteca(TransactionCase):
 
     def test_07_create_product_with_variations(self):
         """Test creating template with variations field present"""
-        # Allow account to create products
         self.account.is_producteca_able_to_create_products = True
         
         producteca_body = {
@@ -185,7 +179,6 @@ class TestProductTemplateProducteca(TransactionCase):
 
     def test_08_template_product_type_from_producteca(self):
         """Test templates created from Producteca use correct type"""
-        # Allow account to create products
         self.account.is_producteca_able_to_create_products = True
         
         producteca_body = {
@@ -202,12 +195,10 @@ class TestProductTemplateProducteca(TransactionCase):
             producteca_body
         )
         
-        # Template type should be 'consu' (consumable) for Odoo 18 compatibility
         self.assertEqual(template.type, 'consu')
 
     def test_09_create_product_without_permission_fails(self):
         """Test creating product fails when account doesn't allow creation"""
-        # Explicitly disable creation permission
         self.account.is_producteca_able_to_create_products = False
         
         producteca_body = {
@@ -219,7 +210,6 @@ class TestProductTemplateProducteca(TransactionCase):
         
         template_obj = self.env['product.template']
         
-        # Should raise exception about no permission
         with self.assertRaises(Exception) as context:
             template_obj._create_product_from_producteca(
                 self.account, 
@@ -236,7 +226,6 @@ class TestProductTemplateProducteca(TransactionCase):
             'list_price': 100.0,
         })
         
-        # Disable modification permission
         self.account.is_producteca_able_to_modified_products = False
         
         producteca_body = {
@@ -253,7 +242,6 @@ class TestProductTemplateProducteca(TransactionCase):
             template
         )
         
-        # Name and price should NOT have changed
         self.assertEqual(template.name, 'Original Name')
         self.assertEqual(template.list_price, 100.0)
 
@@ -265,7 +253,6 @@ class TestProductTemplateProducteca(TransactionCase):
             'list_price': 100.0,
         })
         
-        # Enable modification permission
         self.account.is_producteca_able_to_modified_products = True
         
         producteca_body = {
@@ -282,7 +269,6 @@ class TestProductTemplateProducteca(TransactionCase):
             template
         )
         
-        # Should return True for successful update
         self.assertTrue(result)
 
     def test_12_update_connection_variants_tracking(self):
@@ -294,7 +280,6 @@ class TestProductTemplateProducteca(TransactionCase):
             'type': 'consu',
         })
         
-        # Create a variant with SKU
         variant = self.env['product.product'].create({
             'product_tmpl_id': template.id,
             'default_code': 'SKU_TRACK_001',
@@ -303,7 +288,6 @@ class TestProductTemplateProducteca(TransactionCase):
         template_obj = self.env['product.template']
         template_obj._update_connection_variants(template, self.account, 'PROD_TRACK_001')
         
-        # Should create connection
         connection = self.env['producteca.product.connections'].search([
             ('product_tmpl_id', '=', template.id),
             ('producteca_account_id', '=', self.account.id),

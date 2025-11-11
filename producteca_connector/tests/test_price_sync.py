@@ -90,7 +90,6 @@ class TestPriceSynchronization(TransactionCase):
             'default_pricelist_id': self.pricelist.id,
         })
         
-        # Should have pricelist when enabling price updates
         self.assertTrue(account.default_pricelist_id)
 
     def test_06_price_sync_from_producteca_in_sale_order(self):
@@ -104,7 +103,6 @@ class TestPriceSynchronization(TransactionCase):
             'is_product_price_modified_by_producteca': True,
         })
         
-        # When importing sale orders, should use Producteca prices
         self.assertTrue(account.is_product_price_modified_by_producteca)
 
     def test_07_default_pricelist_not_in_additional_pricelists(self):
@@ -118,7 +116,6 @@ class TestPriceSynchronization(TransactionCase):
             'producteca_pricelist_name': 'PRODUCTECA_LIST',
         })
         
-        # First create account with valid configuration
         account = self.env['producteca.account'].create({
             'account_name': 'Pricelist Test',
             'api_key': 'key',
@@ -129,15 +126,12 @@ class TestPriceSynchronization(TransactionCase):
             'pricelist_ids': [(6, 0, [pricelist2.id])],
         })
         
-        # Verify initial state is correct
         self.assertEqual(account.default_pricelist_id.id, pricelist1.id)
         self.assertIn(pricelist2, account.pricelist_ids)
         self.assertNotIn(pricelist1, account.pricelist_ids)
         
-        # Set producteca name on pricelist1 to allow it in pricelist_ids
         pricelist1.producteca_pricelist_name = 'DEFAULT_LIST'
         
-        # Now try to violate constraint - should fail
         with self.assertRaises(ValidationError):
             account.write({
                 'pricelist_ids': [(6, 0, [pricelist1.id, pricelist2.id])],
@@ -158,7 +152,6 @@ class TestPriceSynchronization(TransactionCase):
 
     def test_09_product_creation_and_modification_flags(self):
         """Test product creation and modification flags work independently"""
-        # Can create but not modify
         account1 = self.env['producteca.account'].create({
             'account_name': 'Create Only',
             'api_key': 'key1',
@@ -172,7 +165,6 @@ class TestPriceSynchronization(TransactionCase):
         self.assertTrue(account1.is_producteca_able_to_create_products)
         self.assertFalse(account1.is_producteca_able_to_modified_products)
         
-        # Can modify but not create
         account2 = self.env['producteca.account'].create({
             'account_name': 'Modify Only',
             'api_key': 'key2',
@@ -186,7 +178,6 @@ class TestPriceSynchronization(TransactionCase):
         self.assertFalse(account2.is_producteca_able_to_create_products)
         self.assertTrue(account2.is_producteca_able_to_modified_products)
         
-        # Can do both
         account3 = self.env['producteca.account'].create({
             'account_name': 'Create and Modify',
             'api_key': 'key3',

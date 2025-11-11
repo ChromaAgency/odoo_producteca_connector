@@ -32,7 +32,6 @@ class TestProductecaAccount(TransactionCase):
         """Test required fields raise validation errors"""
         warehouse = self.env['stock.warehouse'].search([], limit=1)
         
-        # Missing api_key should fail
         with self.assertRaises(Exception):
             self.env['producteca.account'].create({
                 'account_name': 'Missing API Key',
@@ -72,7 +71,6 @@ class TestProductecaAccount(TransactionCase):
         """Test mutual exclusivity of price sync fields"""
         warehouse = self.env['stock.warehouse'].search([], limit=1)
         
-        # Both price sync fields True should raise constraint violation
         with self.assertRaises(Exception):
             self.env['producteca.account'].create({
                 'account_name': 'Price Sync Test',

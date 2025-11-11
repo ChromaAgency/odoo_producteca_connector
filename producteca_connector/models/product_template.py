@@ -30,7 +30,7 @@ class ProductTemplate(models.Model):
     """
     _inherit = 'product.template'
 
-    # Producteca Integration Fields
+    
     is_producteca_product = fields.Boolean(
         string="Is Producteca Product",
         help="Indicates if this product template is synchronized with Producteca marketplace."
@@ -139,8 +139,6 @@ class ProductTemplate(models.Model):
             ('product_tmpl_id', '=', odoo_template.id if odoo_template else False)
         ], limit=1)
         
-        # We'll update product_variant_ids after template and variants are created/updated
-        # This is just to create/identify the connection
         if existing_connection:
             return []
             
@@ -190,8 +188,6 @@ class ProductTemplate(models.Model):
         ], limit=1)
         
         if not connection:
-            # Connection doesn't exist yet, create it
-            # This can happen when we find an existing product by SKU from sale_order
             _logger.info(f"Creating new connection for template {template.name} (ID: {template.id}) with Producteca ID {producteca_id}")
             connection = self.env['producteca.product.connections'].sudo().create({
                 'producteca_account_id': account.id,
@@ -199,7 +195,6 @@ class ProductTemplate(models.Model):
                 'product_tmpl_id': template.id,
             })
         
-        # Link all variants that have SKUs
         variants_with_sku = template.product_variant_ids.filtered(lambda v: v.default_code)
         if variants_with_sku:
             connection.sudo().write({
@@ -244,8 +239,7 @@ class ProductTemplate(models.Model):
                 if not name:
                     raise Exception("El producto de Producteca no tiene nombre asignado. Por favor, verifique en Producteca.")
                 vals['name'] = name
-                vals['type'] = 'consu'  # Consumable product (Odoo 18 compatible)
-                # default_code se asigna a las variantes, no al template
+                vals['type'] = 'consu'
             if producteca_response.get('product_price', False):            
                 vals['list_price'] = float(producteca_response.get('product_price'))
             if producteca_response.get('brand'):
@@ -289,7 +283,6 @@ class ProductTemplate(models.Model):
             if existing_variant:
                 return existing_variant
         
-        # Create new variant
         variant_vals = {
             'product_tmpl_id': template.id,
         }
@@ -298,10 +291,7 @@ class ProductTemplate(models.Model):
         if variation_data.get('barcode'):
             variant_vals['barcode'] = variation_data['barcode']
             
-        # Match attributes if provided
         if variation_data.get('attributes'):
-            # Odoo creates variants automatically based on attribute_line_ids
-            # We just need to find the right combination
             for variant in template.product_variant_ids:
                 match = True
                 for attr in variation_data['attributes']:
@@ -314,7 +304,6 @@ class ProductTemplate(models.Model):
                         match = False
                         break
                 if match:
-                    # Update SKU and barcode on matching variant
                     update_vals = {}
                     if sku:
                         update_vals['default_code'] = sku
@@ -324,7 +313,6 @@ class ProductTemplate(models.Model):
                         variant.sudo().write(update_vals)
                     return variant
         
-        # If no match found and we have no attributes, create default variant
         return self.env['product.product'].sudo().create(variant_vals)
 
     def _create_product_from_producteca(self, account, producteca_body):
@@ -359,7 +347,6 @@ class ProductTemplate(models.Model):
             _logger.error(f"Error creating template: {e}")
             raise
         
-        # Create/update variants from Producteca variations
         if producteca_body.get('variations'):
             for variation in producteca_body['variations']:
                 self._find_or_create_variant_by_sku(
@@ -368,7 +355,6 @@ class ProductTemplate(models.Model):
                     variation
                 )
         
-        # Update connection with all variants that have SKUs
         self._update_connection_variants(template, account, producteca_body.get('id'))
         
         return template
@@ -388,15 +374,12 @@ class ProductTemplate(models.Model):
         Returns:
             bool: True if successful
         """
-        # Prepare product data (respects account.is_producteca_able_to_modified_products)
         product_dict = self._prepare_producteca_to_odoo_product_dict(producteca_body, odoo_template, account)
         template_write = True
         
-        # Only update product data if there are changes to apply
         if product_dict:
             template_write = odoo_template.sudo().write(product_dict)
         
-        # Update variants ONLY if account allows modification
         if account.is_producteca_able_to_modified_products and producteca_body.get('variations'):
             for variation in producteca_body['variations']:
                 self._find_or_create_variant_by_sku(
@@ -405,8 +388,6 @@ class ProductTemplate(models.Model):
                     variation
                 )
         
-        # ALWAYS update connection (for tracking purposes)
-        # This doesn't modify product data, just maintains the link
         self._update_connection_variants(odoo_template, account, producteca_body.get('id'))
         
         return template_write
@@ -428,17 +409,14 @@ class ProductTemplate(models.Model):
         
         product_dict = product.to_dict()
         
-        # Check if template connection exists
         connection = self.env['producteca.product.connections'].sudo().search([
             ('producteca_id', '=', str(product.id)), 
             ('producteca_account_id', '=', account.id)
         ], limit=1)
         
         if connection and connection.product_tmpl_id:
-            # Update existing template
             self._update_product_from_producteca(account, product_dict, connection.product_tmpl_id)
         else:
-            # Try to find by SKU from first variation
             if product_dict.get('variations') and product_dict['variations']:
                 first_sku = product_dict['variations'][0].get('sku')
                 if first_sku:
@@ -449,7 +427,6 @@ class ProductTemplate(models.Model):
                         self._update_product_from_producteca(account, product_dict, existing_variant.product_tmpl_id)
                         return
             
-            # Create new template
             self._create_product_from_producteca(account, product_dict)
 
     def _create_product_in_producteca(self, account, producteca_body):
@@ -468,12 +445,9 @@ class ProductTemplate(models.Model):
         product_service = client.Product
         product_service.create_if_it_doesnt_exist = account.create_if_dosnt_exist,
         product = product_service.synchronize(producteca_body)
-        
-        # Use _update_connection_variants which will create connection if it doesn't exist
-        # and update variants
+
         self._update_connection_variants(self, account, str(product.id))
         
-        # Return the connection
         connection = self.env['producteca.product.connections'].sudo().search([
             ('product_tmpl_id', '=', self.id), 
             ('producteca_id', '=', str(product.id)), 
@@ -499,7 +473,6 @@ class ProductTemplate(models.Model):
         product_prices = []      
         
         if account.default_pricelist_id:
-            # Use first variant for price calculation if template has variants
             product_for_price = template.product_variant_ids[0] if template.product_variant_ids else template
             price = account.default_pricelist_id._get_product_price(product_for_price, 1)
             pricelist_name = account.default_pricelist_id._get_producteca_pricelist_name(account)
@@ -580,7 +553,7 @@ class ProductTemplate(models.Model):
         pricelists = self._obtain_pricelist_for_product(template, account)
         stocks_data = self._obtain_stocks_for_product(template, account)
         
-        # Use first variant for main image, or template if no variants
+        
         image_product = template.product_variant_ids[0] if template.product_variant_ids else template
         image_url = f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{image_product.id}"
         deals = None
@@ -594,17 +567,17 @@ class ProductTemplate(models.Model):
             "pictures": [{"url": image_url}] if image_url else []
         }
         
-        # Add template tags if any
+        
         if template.product_tag_ids:
             product_data["tags"] = [tag.name for tag in template.product_tag_ids]
         
-        # Add weight if set
+        
         if template.weight:
             product_data["dimensions"] = {
                 "weight": template.weight if template.weight else 0,
             }
         
-        # Add variations (variants)
+        
         variations = []
         for variant in template.product_variant_ids:
             variation_dict = {
@@ -612,14 +585,14 @@ class ProductTemplate(models.Model):
                 "barcode": variant.barcode or None,
             }
             
-            # Add variant attributes
+            
             if variant.product_template_variant_value_ids:
                 variation_dict["attributes"] = [
                     {"key": variant_value.attribute_id.name, "value": variant_value.name}
                     for variant_value in variant.product_template_variant_value_ids
                 ]
             
-            # Add variant-specific stocks
+            
             variant_stocks = [s for s in stocks_data if s['sku'] == variant.default_code]
             if variant_stocks and variant_stocks[0]['stocks']:
                 variation_dict["stocks"] = [

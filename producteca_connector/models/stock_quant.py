@@ -10,9 +10,7 @@ class StockQuant(models.Model):
 
     def _update_stock_in_producteca(self):
         self.ensure_one()
-        # We should handle many products at once
-        # for connection in producteca_connections:
-        # Search by product variant (Many2many relationship)
+        
         producteca_connection = self.env['producteca.product.connections'].sudo().search([
             ('product_variant_ids', 'in', self.product_id.id)
         ], limit=1)
@@ -20,10 +18,8 @@ class StockQuant(models.Model):
         if self.location_id.warehouse_id not in account.warehouse_ids:
             return
         _logger.info("producteca_id: %s", producteca_connection.producteca_id)
-        # Use variant SKU for stock synchronization
         producteca_body = {"sku": self.product_id.default_code, "stocks": [{"quantity": self.quantity,
                            "available_quantity": self.available_quantity, "warehouse": self.location_id.warehouse_id.producteca_warehouse_name}]}
-        # Product ID is at template level, variation tracking is via SKU
         if producteca_connection.producteca_id:
             producteca_body.update({
                 "id": producteca_connection.producteca_id

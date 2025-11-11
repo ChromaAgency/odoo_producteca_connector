@@ -32,7 +32,6 @@ class ProductecaAccountConfig(models.Model):
     _description = 'Producteca Account Configuration'
     _rec_name = 'account_name'
 
-    # Basic Configuration Fields
     active = fields.Boolean(
         string='Active', 
         default=True,
@@ -58,7 +57,6 @@ class ProductecaAccountConfig(models.Model):
         help="Unique identifier of the company in Producteca marketplace."
     )
 
-    # Company and Warehouse Configuration
     company_id = fields.Many2one(
         'res.company', 
         string='Company',
@@ -76,7 +74,6 @@ class ProductecaAccountConfig(models.Model):
         help="Default warehouse used for stock operations when not specified."
     )
 
-    # Order Processing Configuration
     imported_sale_action = fields.Selection([
         ("quotation", "Create the sale order confirmed"),
         ("draft_invoice", "Confirm the sale order and create draft invoice"),
@@ -198,4 +195,4 @@ class ProductecaAccountConfig(models.Model):
             Consider running in background for large datasets.
         """
         self.ensure_one()
-        return self.env['product.product'].sync_all_products_from_producteca()
+        return self.env['product.template'].sync_all_products_from_producteca()

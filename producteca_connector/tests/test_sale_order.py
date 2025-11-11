@@ -74,7 +74,6 @@ class TestSaleOrderProducteca(TransactionCase):
         partner = order_obj._get_partner_id(body, self.account)
         
         self.assertTrue(partner)
-        # Should return a partner (either existing or new)
         self.assertIsInstance(partner.id, int)
 
     def test_03_sale_order_with_producteca_fields(self):
@@ -93,7 +92,6 @@ class TestSaleOrderProducteca(TransactionCase):
         order_obj = self.env['sale.order']
         warehouse_id = order_obj._get_warehouse('Default', self.account)
         
-        # When 'Default' specified, should return default warehouse ID
         self.assertEqual(warehouse_id, self.account.default_warehouse_id.id)
 
     def test_05_imported_sale_action_quotation(self):
@@ -106,7 +104,6 @@ class TestSaleOrderProducteca(TransactionCase):
             'producteca_id': 'ORDER_QUOTATION',
         })
         
-        # Add order line to make it valid
         self.env['sale.order.line'].create({
             'order_id': order.id,
             'product_id': self.product.id,
@@ -117,7 +114,6 @@ class TestSaleOrderProducteca(TransactionCase):
         initial_state = order.state
         order._run_import_sale_action(self.account)
         
-        # quotation action confirms the order
         self.assertEqual(order.state, 'sale')
 
     def test_06_imported_sale_action_confirm(self):
@@ -130,7 +126,6 @@ class TestSaleOrderProducteca(TransactionCase):
             'producteca_id': 'ORDER_CONFIRM',
         })
         
-        # Add order line
         self.env['sale.order.line'].create({
             'order_id': order.id,
             'product_id': self.product.id,
@@ -140,7 +135,6 @@ class TestSaleOrderProducteca(TransactionCase):
         
         order._run_import_sale_action(self.account)
         
-        # Should be confirmed
         self.assertEqual(order.state, 'sale')
 
     def test_07_get_cart_id_extraction(self):
@@ -152,11 +146,9 @@ class TestSaleOrderProducteca(TransactionCase):
         order_obj = self.env['sale.order']
         cart_id = order_obj._get_cart_id(body)
         
-        # Should create cart and return its ID
         self.assertTrue(cart_id)
         self.assertIsInstance(cart_id, int)
         
-        # Verify cart was created
         cart = self.env['sale.order.cart'].search([
             ('producteca_id', '=', 'CART_TEST_001')
         ])
@@ -176,9 +168,7 @@ class TestSaleOrderProducteca(TransactionCase):
         """Test _mapped_origin_application with valid channel"""
         order_obj = self.env['sale.order']
         
-        # Test with channel 0 or similar
         result = order_obj._mapped_origin_application(0)
-        # Result can be False or an application record
         self.assertIsNotNone(result)
 
     def test_10_sale_order_run_quotation_process(self):
@@ -198,7 +188,6 @@ class TestSaleOrderProducteca(TransactionCase):
         
         order._run_quotation_process()
         
-        # Should move to sale state
         self.assertEqual(order.state, 'sale')
 
     def test_11_sale_order_run_confirm_process(self):
@@ -216,9 +205,7 @@ class TestSaleOrderProducteca(TransactionCase):
         
         order._run_confirm_process()
         
-        # Should be confirmed
         self.assertEqual(order.state, 'sale')
-        # Should have invoice created and posted
         self.assertTrue(len(order.invoice_ids) > 0)
         posted_invoices = order.invoice_ids.filtered(lambda i: i.state == 'posted')
         self.assertTrue(len(posted_invoices) > 0)

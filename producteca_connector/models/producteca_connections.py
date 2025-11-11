@@ -29,7 +29,6 @@ class ProductecaConnections(models.Model):
     _name = 'producteca.product.connections'
     _description = 'Producteca Product Connections'
     
-    # Connection Configuration Fields
     producteca_account_id = fields.Many2one(
         'producteca.account', 
         string='Producteca Account', 
@@ -89,9 +88,8 @@ class ProductecaConnections(models.Model):
             "createifitdoesntexist": str(account_data['create_if_dosnt_exist']).lower()
         }
         _logger.info(f"product dict to sync description: {product_dict}")
-        # API call commented out for development
-        #result = requests.post("https://api-external.producteca.com/products/synchronize", headers=headers, json=product_dict)
-        #_logger.info(f"Sync description result: {result}")
+        
+        
 
     def fix_producteca_descriptions(self):
         """Fix and synchronize all product descriptions to Producteca.
@@ -131,13 +129,11 @@ class ProductecaConnections(models.Model):
             if not template or not template.description:
                 continue
             
-            # Get first variant with SKU for the sync (templates don't have default_code when they have variants)
             first_variant = template.product_variant_ids.filtered(lambda v: v.default_code)
             if not first_variant:
                 _logger.warning(f"Template {template.name} (ID: {template.id}) has no variants with SKU. Skipping description sync.")
                 continue
             
-            # Convert Markup to string while preserving HTML formatting
             description_text = str(template.description)
             
             account_data = {

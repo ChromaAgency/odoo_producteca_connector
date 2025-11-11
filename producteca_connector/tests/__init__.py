@@ -7,5 +7,3 @@ from . import test_product_template
 from . import test_sale_order
 from . import test_wizards
 from . import test_price_sync
-
-# Producteca Connector Tests - Regenerated for template-based migration
