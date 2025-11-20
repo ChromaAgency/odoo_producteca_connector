@@ -123,7 +123,7 @@ class SaleOrder(models.Model):
     
     def _create_new_shipments(self):
         for picking in self.picking_ids:
-            picking = picking.with_delay()._create_producteca_shipment()
+            picking.with_delay()._create_producteca_shipment()
     
     # TODO: Can shippings be multiple? For example an orden comes from producteca with 3 shippings.abs
     # We should support this.
@@ -273,19 +273,48 @@ class SaleOrder(models.Model):
         return warehouse
 
     def _handle_missing_product(self, line, account):
+        """Handle missing product in sale order import.
+        
+        Attempts to find or create product from sale order line data.
+        Line structure from Producteca API:
+        {
+            "product": {"id": 123, "name": "...", "code": "...", "brand": "..."},
+            "variation": {"id": 456, "sku": "ABC", "barcode": "...", "stocks": [...]},
+            "price": 100.0,
+            "quantity": 2
+        }
+        
+        Args:
+            line (dict): Sale order line data from Producteca
+            account (producteca.account): Producteca account
+            
+        Returns:
+            product.product: Found or created product variant
+        """
         product_data = line.get('product', {})
         variation_data = line.get('variation', {})
         
-        producteca_body_queue = product_data | variation_data
+        producteca_id = product_data.get('id')
+        variation_id = variation_data.get('id')
+        sku = line.get('sku') or variation_data.get('sku')
         
-        if product_data.get('id'):
-            producteca_body_queue['id'] = product_data['id']
-        if variation_data.get('id'):
-            producteca_body_queue['variation_id'] = int(variation_data['id'])
+        producteca_body_queue = {
+            'id': producteca_id,
+            'name': product_data.get('name'),
+            'code': product_data.get('code'),
+            'brand': product_data.get('brand'),
+        }
+        
+        if variation_id and sku:
+            producteca_body_queue['variations'] = [{
+                'id': variation_id,
+                'sku': sku,
+                'barcode': variation_data.get('barcode'),
+            }]
         
         if account.is_product_price_modified_by_producteca:
             unit_price = line.get('price', 0) / line.get('quantity', 1)            
-            temp_product = self.env['product.product'].search([('default_code', '=', producteca_body_queue.get('sku'))], limit=1)
+            temp_product = self.env['product.product'].search([('default_code', '=', sku)], limit=1)
             if temp_product and temp_product.taxes_id:
                 tax_id = temp_product.taxes_id[0]
                 unit_price = unit_price / (1 + (tax_id.amount/100))
@@ -296,21 +325,20 @@ class SaleOrder(models.Model):
             _logger.info("producteca product price to sync (after tax calculation): " + str(unit_price))
         
         product = None
-        odoo_variant = self.env['product.product'].search([('default_code', '=', producteca_body_queue.get('sku'))], limit=1)
+        odoo_variant = self.env['product.product'].search([('default_code', '=', sku)], limit=1)
         if odoo_variant:
             template = odoo_variant.product_tmpl_id
             
             if account.is_producteca_able_to_modified_products:
                 template._update_product_from_producteca(account, producteca_body_queue, template)
             else:
-                template._update_connection_variants(template, account, producteca_body_queue.get('id'))
+                template._update_connection_variants(template, account, producteca_id, producteca_body_queue)
                 _logger.info(f"Product {template.name} found but not modified (account doesn't allow modifications). Connection updated.")
             
             product = odoo_variant
         
         if not product:
             if not account.is_producteca_able_to_create_products:
-                sku = producteca_body_queue.get('sku', 'N/A')
                 raise Exception(
                     f"No se pudo procesar la orden porque el producto con SKU '{sku}' no existe en Odoo "
                     f"y la cuenta de Producteca no permite la creación de productos. "
@@ -329,22 +357,19 @@ class SaleOrder(models.Model):
         for line in lines:
             _logger.info(line)
             product_id = line.get('product', {}).get('id')
+            variation_id = line.get('variation', {}).get('id')
             sku = line.get('sku') or (line.get('variation', {}).get('sku') if line.get('variation') else None)
             
-            # Find template connection by producteca_id
+            # Find variant connection by producteca_variation_id
             connection = self.env['producteca.product.connections'].search([
-                ('producteca_id', '=', str(product_id)),
+                ('producteca_variation_id', '=', str(variation_id)),
                 ('producteca_account_id', '=', account.id)
             ], limit=1)
             
-            product = None
-            if connection and connection.product_tmpl_id:
-                if sku:
-                    product = connection.product_tmpl_id.product_variant_ids.filtered(
-                        lambda v: v.default_code == sku
-                    )
-                if not product:
-                    product = connection.product_tmpl_id.product_variant_ids[0] if connection.product_tmpl_id.product_variant_ids else None
+            product = connection.product_id if connection else None
+            
+            if not product and sku:
+                product = self.env['product.product'].search([('default_code', '=', sku)], limit=1)
             
             if not product:
                 product = self._handle_missing_product(line, account)

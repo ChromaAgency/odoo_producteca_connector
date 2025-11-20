@@ -11,25 +11,31 @@ class StockQuant(models.Model):
     def _update_stock_in_producteca(self):
         self.ensure_one()
         
-        producteca_connection = self.env['producteca.product.connections'].sudo().search([
-            ('product_variant_ids', 'in', self.product_id.id)
-        ], limit=1)
-        account = producteca_connection.producteca_account_id
-        if self.location_id.warehouse_id not in account.warehouse_ids:
+        connection = self.product_id.producteca_connection_ids.filtered(
+            lambda c: c.producteca_account_id.active
+        )[:1]
+        
+        if not connection:
             return
-        _logger.info("producteca_id: %s", producteca_connection.producteca_id)
+            
+        account = connection.producteca_account_id
+        
+        all_warehouses = account.warehouse_ids | account.default_warehouse_id
+        if self.location_id.warehouse_id not in all_warehouses:
+            return
+        
+        warehouse_name = self.location_id.warehouse_id._get_producteca_warehouse_name(account)
+        
         producteca_body = {"sku": self.product_id.default_code, "stocks": [{"quantity": self.quantity,
-                           "available_quantity": self.available_quantity, "warehouse": self.location_id.warehouse_id.producteca_warehouse_name}]}
-        if producteca_connection.producteca_id:
+                           "available_quantity": self.available_quantity, "warehouse": warehouse_name}]}
+        if connection.producteca_id:
             producteca_body.update({
-                "id": producteca_connection.producteca_id
+                "id": connection.producteca_id
             })
         client = account.get_client()
         product = client.Product
         product.create_if_it_doesnt_exist = account.create_if_dosnt_exist
-        _logger.info(product.synchronize(producteca_body))
-
-    # TODO Handle create
+        product.synchronize(producteca_body)
 
     @api.model
     def create(self, vals):

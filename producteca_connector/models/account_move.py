@@ -18,8 +18,6 @@ class AccountMove(models.Model):
     producteca_payment_data = fields.Text(string='Datos del pago de producteca')
 
     def add_invoice_to_producteca(self):
-        # I Think we dont need this anymore, this was used when producteca_invoice_already_exists was False, is it really necessary?
-        # response = SaleOrder.synchronize(SaleOrder(**producteca_body))
         if self.move_type == 'out_invoice' and self.producteca_account_id and self.producteca_order_id:
             client = self.producteca_account_id.get_client()
             if not self.access_token:
@@ -37,17 +35,18 @@ class AccountMove(models.Model):
     
     def _create_payments_from_producteca(self):
         self.ensure_one()
-        journals = self.env['account.journal'].search([])
+        journals = self.env['account.journal'].search([('producteca_payment_method', '!=', False)])
         if self.producteca_payment_data:
             payments = safe_eval(self.producteca_payment_data)
             for payment in payments:
                 # ! Are there any other status?
                 if payment['status'] == 'Approved':
                     self = self.with_context(update_from_invoice=True)
-                    journal_id = journals.filtered(lambda journal: journal.producteca_payment_method == payment['method'])[0] if journals.filtered(lambda journal: journal.producteca_payment_method == payment['method']) else False
-                    if not journal_id:
-                        _logger.info('No se encontro el diario de pago de producteca')
+                    matching_journals = journals.filtered(lambda journal: journal.producteca_payment_method == payment['method'])
+                    if not matching_journals:
+                        _logger.info(f"No se encontro el diario de pago para el metodo '{payment['method']}'")
                         continue
+                    journal_id = matching_journals[0]
                     payment_register = self.env['account.payment.register'].with_context(
                         active_model='account.move',
                         active_ids=self.ids,
@@ -56,14 +55,20 @@ class AccountMove(models.Model):
                         'payment_date': payment['date'],
                         'journal_id': journal_id.id,
                     })
-                    payment_register.action_create_payments()
-                    # TODO: This should be part of the wizard
-                    self.matched_payment_ids.sorted('create_date', reverse=True)[:1].write({'producteca_payment_id': payment['id']})
+                    payment_result = payment_register.action_create_payments()
+                    
+                    if payment_result and 'res_id' in payment_result:
+                        created_payment = self.env['account.payment'].browse(payment_result['res_id'])
+                        created_payment.write({
+                            'producteca_payment_id': str(payment['id']),
+                            'producteca_account_id': self.producteca_account_id.id,
+                        })
+                    
                     self.producteca_payment_state = 'approved'
 
     def action_post(self):
         result = super(AccountMove, self).action_post()
         for move in self:
             move.with_delay().add_invoice_to_producteca()
-            move._create_payments_from_producteca()
+            move.with_delay()._create_payments_from_producteca()
         return result

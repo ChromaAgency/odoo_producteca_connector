@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Tests for producteca.product.connections model - Template Migration"""
+"""Tests for producteca.product.connections model - Variant-based connections"""
 
 from odoo.tests.common import TransactionCase
+from odoo.exceptions import ValidationError
 
 
 class TestProductecaConnections(TransactionCase):
-    """Test producteca.product.connections with template-based logic"""
+    """Test producteca.product.connections with variant-based logic"""
 
     @classmethod
     def setUpClass(cls):
@@ -19,24 +20,95 @@ class TestProductecaConnections(TransactionCase):
             'default_warehouse_id': cls.env['stock.warehouse'].search([], limit=1).id,
         })
 
-    def test_01_connection_uses_product_tmpl_id(self):
-        """Test connections use product_tmpl_id not product_id"""
+    def test_01_connection_uses_product_id(self):
+        """Test connections use product_id (variant) not product_tmpl_id"""
         template = self.env['product.template'].create({
             'name': 'Test Template',
             'type': 'consu',
         })
         
+        variant = template.product_variant_ids[0]
+        
         connection = self.env['producteca.product.connections'].create({
             'producteca_account_id': self.account.id,
-            'product_tmpl_id': template.id,
+            'product_id': variant.id,
             'producteca_id': 'PROD_001',
+            'producteca_variation_id': 'VAR_001',
         })
         
+        self.assertEqual(connection.product_id.id, variant.id)
         self.assertEqual(connection.product_tmpl_id.id, template.id)
-        self.assertFalse(hasattr(connection, 'product_id'))
 
-    def test_02_connection_has_many2many_variants(self):
-        """Test connections have Many2many product_variant_ids field"""
+    def test_02_unique_variant_per_account(self):
+        """Test unique constraint: one variant can't have multiple connections to same account"""
+        template = self.env['product.template'].create({
+            'name': 'Constraint Test',
+            'type': 'consu',
+        })
+        
+        variant = template.product_variant_ids[0]
+        
+        self.env['producteca.product.connections'].create({
+            'producteca_account_id': self.account.id,
+            'product_id': variant.id,
+            'producteca_id': 'PROD_002',
+            'producteca_variation_id': 'VAR_002',
+        })
+        
+        with self.assertRaises(ValidationError):
+            self.env['producteca.product.connections'].create({
+                'producteca_account_id': self.account.id,
+                'product_id': variant.id,
+                'producteca_id': 'PROD_002',
+                'producteca_variation_id': 'VAR_003',  # Different variation
+            })
+
+    def test_03_search_connections_by_producteca_variation_id(self):
+        """Test searching connections by producteca_variation_id"""
+        template = self.env['product.template'].create({
+            'name': 'Search Test Template',
+            'type': 'consu',
+        })
+        
+        variant = self.env['product.product'].create({
+            'product_tmpl_id': template.id,
+            'default_code': 'SEARCH001',
+        })
+        
+        connection = self.env['producteca.product.connections'].create({
+            'producteca_account_id': self.account.id,
+            'product_id': variant.id,
+            'producteca_id': 'PROD_SEARCH_001',
+            'producteca_variation_id': 'VAR_SEARCH_001',
+        })
+        
+        found = self.env['producteca.product.connections'].search([
+            ('producteca_variation_id', '=', 'VAR_SEARCH_001'),
+            ('producteca_account_id', '=', self.account.id)
+        ])
+        
+        self.assertEqual(found, connection)
+
+    def test_04_active_field_default_true(self):
+        """Test active field defaults to True"""
+        template = self.env['product.template'].create({
+            'name': 'Active Test',
+            'type': 'consu',
+        })
+        
+        variant = template.product_variant_ids[0]
+        
+        connection = self.env['producteca.product.connections'].create({
+            'producteca_account_id': self.account.id,
+            'product_id': variant.id,
+            'producteca_id': 'PROD_ACTIVE',
+            'producteca_variation_id': 'VAR_ACTIVE',
+        })
+        
+        self.assertTrue(connection.active)
+
+    def test_05_multiple_variants_same_product(self):
+        """Test product can have multiple variant connections to same account"""
         template = self.env['product.template'].create({
             'name': 'Multi Variant Template',
             'type': 'consu',
@@ -52,84 +124,24 @@ class TestProductecaConnections(TransactionCase):
             'default_code': 'VAR002',
         })
         
-        connection = self.env['producteca.product.connections'].create({
-            'producteca_account_id': self.account.id,
-            'product_tmpl_id': template.id,
-            'producteca_id': 'PROD_002',
-            'product_variant_ids': [(6, 0, [variant1.id, variant2.id])],
-        })
-        
-        self.assertEqual(len(connection.product_variant_ids), 2)
-        self.assertIn(variant1, connection.product_variant_ids)
-        self.assertIn(variant2, connection.product_variant_ids)
-
-    def test_03_search_connections_by_variant(self):
-        """Test searching connections by variant ID"""
-        template = self.env['product.template'].create({
-            'name': 'Search Test Template',
-            'type': 'consu',
-        })
-        
-        variant = self.env['product.product'].create({
-            'product_tmpl_id': template.id,
-            'default_code': 'SEARCH001',
-        })
-        
-        connection = self.env['producteca.product.connections'].create({
-            'producteca_account_id': self.account.id,
-            'product_tmpl_id': template.id,
-            'producteca_id': 'PROD_SEARCH_001',
-            'product_variant_ids': [(6, 0, [variant.id])],
-        })
-        
-        found = self.env['producteca.product.connections'].search([
-            ('product_variant_ids', 'in', variant.id)
-        ])
-        
-        self.assertIn(connection, found)
-
-    def test_04_active_field_default_true(self):
-        """Test active field defaults to True"""
-        template = self.env['product.template'].create({
-            'name': 'Active Test',
-            'type': 'consu',
-        })
-        
-        connection = self.env['producteca.product.connections'].create({
-            'producteca_account_id': self.account.id,
-            'product_tmpl_id': template.id,
-            'producteca_id': 'PROD_ACTIVE',
-        })
-        
-        self.assertTrue(connection.active)
-
-    def test_05_multiple_connections_same_template(self):
-        """Test template can have multiple connections to different accounts"""
-        template = self.env['product.template'].create({
-            'name': 'Multi Connection Template',
-            'type': 'consu',
-        })
-        
-        account2 = self.env['producteca.account'].create({
-            'account_name': 'Second Account',
-            'api_key': 'key2',
-            'bearer_token': 'token2',
-            'imported_sale_action': 'quotation',
-            'default_warehouse_id': self.env['stock.warehouse'].search([], limit=1).id,
-        })
-        
         conn1 = self.env['producteca.product.connections'].create({
             'producteca_account_id': self.account.id,
-            'product_tmpl_id': template.id,
-            'producteca_id': 'PROD_MULTI_1',
+            'product_id': variant1.id,
+            'producteca_id': 'PROD_MULTI',
+            'producteca_variation_id': 'VAR_MULTI_1',
         })
         
         conn2 = self.env['producteca.product.connections'].create({
-            'producteca_account_id': account2.id,
-            'product_tmpl_id': template.id,
-            'producteca_id': 'PROD_MULTI_2',
+            'producteca_account_id': self.account.id,
+            'product_id': variant2.id,
+            'producteca_id': 'PROD_MULTI',
+            'producteca_variation_id': 'VAR_MULTI_2',
         })
         
-        self.assertEqual(len(template.producteca_connection_ids), 2)
-        self.assertIn(conn1, template.producteca_connection_ids)
-        self.assertIn(conn2, template.producteca_connection_ids)
+        self.assertEqual(variant1.producteca_connection_ids, conn1)
+        self.assertEqual(variant2.producteca_connection_ids, conn2)
+        
+        # Ambas conexiones tienen el mismo producteca_id (producto)
+        self.assertEqual(conn1.producteca_id, conn2.producteca_id)
+        # Pero diferentes producteca_variation_id
+        self.assertNotEqual(conn1.producteca_variation_id, conn2.producteca_variation_id)

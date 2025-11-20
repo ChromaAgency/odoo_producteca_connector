@@ -52,8 +52,8 @@ class StockPicking(models.Model):
                 line.quantity = products.get(line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == self.producteca_account_id).producteca_id)
             self.scheduled_date = parsed_date
             self.carrier_tracking_ref = picking_data.get('method').get('trackingNumber')
-        if picking_data.get('integration'):
-            self.producteca_shipment_id = picking_data.get('integration').get('integrationId')
+        if picking_data.get('id'):
+            self.producteca_shipment_id = str(picking_data.get('id'))
         if picking_data.get('method'):
             self.carrier_id = self._obtain_carrier_id(picking_data.get('method').get('courier'))
 
@@ -90,9 +90,18 @@ class StockPicking(models.Model):
         return client.SalesOrder(id=self.sale_id.producteca_id).update_shipment(self.producteca_shipment_id, producteca_body)
 
     def _create_producteca_shipment(self):
+        self.ensure_one()
         client = self.producteca_account_id.get_client()
         producteca_body = self._create_producteca_dict_for_picking()
-        return client.SalesOrder(id=self.sale_id.producteca_id).add_shipment(producteca_body)
+        response = client.SalesOrder(id=self.sale_id.producteca_id).add_shipment(producteca_body)
+        
+        if response:
+            if hasattr(response, 'id'):
+                self.producteca_shipment_id = str(response.id)
+            elif isinstance(response, dict) and response.get('id'):
+                self.producteca_shipment_id = str(response['id'])
+        
+        return response
 
     def write(self, vals):
         res = super(StockPicking, self).write(vals)
@@ -125,14 +134,16 @@ class StockPicking(models.Model):
 
     def _send_decreasestock_to_producteca(self):
         self.ensure_one()
+        if not self.sale_id.producteca_order_id:
+            raise ValueError("No producteca_order_id found in sale order")
+            
         client = self.producteca_account_id.get_client()
         decrease_stock_body = {
-                "id": int(self.sale_id.producteca_order_id),
-                "invoiceIntegration": {
-                    "documentUrl": "",
-                    "integrationId": str(self.name) if self.name else str(self.id),
-                    "decreaseStock": True
-                    }}
+            "id": int(self.sale_id.producteca_order_id),
+            "invoiceIntegration": {
+                "decreaseStock": True
+            }
+        }
         client.SalesOrder(**decrease_stock_body).invoice_integration()
 
 
@@ -146,7 +157,7 @@ class StockMoveLine(models.Model):
                     not self.env.context.get("update_from_confirm") and not self.env.context.get("update_from_validate"):
                 account = move_line.picking_id.sale_id.producteca_account_id
                 product_dict = {"products": {
-                    "product": move_line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == account).producteca_variation_id,
+                    "product": move_line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == account).producteca_id,
                     "variation": move_line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == account).producteca_variation_id,
                     "quantity": move_line.qty_done if move_line.picking.state == 'done' else move_line.product_uom_qty,
                 }}

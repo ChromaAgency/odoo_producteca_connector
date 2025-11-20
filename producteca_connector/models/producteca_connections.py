@@ -7,23 +7,22 @@ import requests
 class ProductecaConnections(models.Model):
     """Product connection management for Producteca marketplace integration.
     
-    This model manages the relationships between Odoo products and their
-    corresponding entities in the Producteca marketplace. It handles the
-    mapping between local products and external marketplace products,
-    including variations and synchronization.
+    This model manages the relationships between Odoo product variants and their
+    corresponding variations in the Producteca marketplace. Each connection
+    represents one Odoo variant linked to one Producteca variation.
     
     Business Logic:
-    - Links Odoo products to Producteca marketplace products
-    - Manages product variations and their IDs
+    - Links Odoo product variants to Producteca marketplace variations
+    - Maintains 1:1 relationship between variant and Producteca variation
     - Handles product description synchronization
     - Provides queued operations for marketplace sync
     - Maintains connection status and metadata
     
     Key Features:
-    - Product-to-marketplace mapping
+    - Variant-to-variation mapping (1:1)
     - Variation ID management
     - Asynchronous description synchronization
-    - Bulk operation support
+    - Unique constraint per variant per account
     - Connection status tracking
     """
     _name = 'producteca.product.connections'
@@ -35,26 +34,42 @@ class ProductecaConnections(models.Model):
         required=True,
         help="Producteca account this connection belongs to. Defines authentication and sync settings."
     )
+    product_id = fields.Many2one(
+        'product.product',
+        string='Product Variant',
+        required=True,
+        ondelete='cascade',
+        help="Odoo product variant linked to this Producteca marketplace variation."
+    )
     product_tmpl_id = fields.Many2one(
         'product.template', 
         string='Product Template',
-        help="Odoo product template linked to this Producteca marketplace product."
-    )
-    product_variant_ids = fields.Many2many(
-        'product.product',
-        string='Product Variants',
-        help="All variants (product.product) belonging to this template connection. Used to track SKUs from Producteca variations."
+        related='product_id.product_tmpl_id',
+        store=True,
+        readonly=True,
+        help="Product template of the variant (computed field)."
     )
     producteca_id = fields.Char(
-        string='Producteca ID', 
+        string='Producteca Product ID', 
         required=True,
-        help="Unique identifier for the product in Producteca marketplace."
+        help="Unique identifier for the product in Producteca marketplace (shared across variations)."
+    )
+    producteca_variation_id = fields.Char(
+        string='Producteca Variation ID',
+        required=True,
+        help="Unique identifier for the specific variation in Producteca marketplace."
     )
     active = fields.Boolean(
         string='Active', 
         default=True,
         help="Indicates if this connection is active and should be used for synchronization."
     )
+
+    _sql_constraints = [
+        ('unique_variant_per_account', 
+         'UNIQUE(product_id, producteca_account_id)',
+         'A product variant can only have one connection per Producteca account')
+    ]
 
 
     def _sync_description_product(self, account_data, product_dict):
@@ -95,16 +110,18 @@ class ProductecaConnections(models.Model):
         """Fix and synchronize all product descriptions to Producteca.
         
         This method performs a bulk operation to synchronize all product
-        descriptions from connected Odoo products to their corresponding
-        Producteca marketplace entries. It processes all active connections
+        descriptions from connected Odoo templates to their corresponding
+        Producteca marketplace products. It processes all active connections
         and queues description updates.
         
         Returns:
             bool: True when operation is completed successfully
             
         Business Logic:
-        - Searches all active product connections
-        - Filters products that have descriptions
+        - Searches all active product connections (one per variant)
+        - Groups by template (since description is at template level in Producteca)
+        - Takes one variant with SKU per template to send the update
+        - Description comes from template (notes is at product level in Producteca)
         - Converts Markup descriptions to string format
         - Preserves HTML formatting in descriptions
         - Queues each update for asynchronous processing
@@ -123,17 +140,26 @@ class ProductecaConnections(models.Model):
         - During marketplace reconciliation processes
         """
         connections = self.env['producteca.product.connections'].sudo().search([])
+        
+        templates_processed = set()
+        
         for connection in connections:
             template = connection.product_tmpl_id
+            
+            if not template or template.id in templates_processed:
+                continue
+            
+            if not template.description:
+                templates_processed.add(template.id)
+                continue
+            
+            variant = connection.product_id
+            if not variant or not variant.default_code:
+                _logger.warning(f"Connection for template {template.name} has no variant with SKU. Skipping description sync.")
+                templates_processed.add(template.id)
+                continue
+            
             account = connection.producteca_account_id
-            if not template or not template.description:
-                continue
-            
-            first_variant = template.product_variant_ids.filtered(lambda v: v.default_code)
-            if not first_variant:
-                _logger.warning(f"Template {template.name} (ID: {template.id}) has no variants with SKU. Skipping description sync.")
-                continue
-            
             description_text = str(template.description)
             
             account_data = {
@@ -142,9 +168,11 @@ class ProductecaConnections(models.Model):
                 'create_if_dosnt_exist': account.create_if_dosnt_exist
             }
             product_dict = {
-                "sku": first_variant[0].default_code,
+                "sku": variant.default_code,
                 "notes": description_text
             }
 
             self.with_delay()._sync_description_product(account_data, product_dict)
+            templates_processed.add(template.id)
+            
         return True

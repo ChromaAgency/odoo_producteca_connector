@@ -115,93 +115,131 @@ class ProductTemplate(models.Model):
         return [(6, 0, all_tags.ids)] 
 
     def _handle_producteca_connection_ids(self, producteca_response, odoo_template, account):
-        """Handle Producteca connections for product template.
+        """Handle Producteca connections for product variants.
         
-        Creates or updates connections between Odoo template and Producteca product.
-        Links all product variants to the connection for SKU tracking.
+        Creates or updates connections between Odoo variants and Producteca variations.
+        Each variation in Producteca gets its own connection to the corresponding Odoo variant.
+        This is called AFTER variants are created to establish the connections.
+        
+        ALWAYS creates/updates connections even if account doesn't allow modifications,
+        because connections are needed for tracking and synchronization.
         
         Args:
-            producteca_response (dict): Response from Producteca API
-            odoo_template (product.template): Existing template, or False for new products
+            producteca_response (dict): Response from Producteca API with variations[]
+            odoo_template (product.template): Template with created variants
             account (producteca.account): Producteca account for this connection
             
         Returns:
-            list: Command list for producteca_connection_ids field operations
+            None - Connections are created directly, not via Commands
         """
         if not account and not producteca_response.get('account_id'):
-            return []
+            _logger.error("Cannot handle connections: no account provided")
+            return
+        
+        if not odoo_template:
+            _logger.error("Cannot handle connections: no odoo_template provided")
+            return
+        
+        if not account:
+            account = self.env['producteca.account'].browse(producteca_response.get('account_id'))
 
-        producteca_account = account.id if account else producteca_response.get('account_id')
+        producteca_id = str(producteca_response.get('id'))
+        variations = producteca_response.get('variations', [])
         
-        existing_connection = self.env['producteca.product.connections'].sudo().search([
-            ('producteca_account_id', '=', producteca_account),
-            ('producteca_id', '=', str(producteca_response.get('id'))),
-            ('product_tmpl_id', '=', odoo_template.id if odoo_template else False)
-        ], limit=1)
-        
-        if existing_connection:
-            return []
+        for variation in variations:
+            sku = variation.get('sku')
+            variation_id = str(variation.get('id'))
             
-        if odoo_template and odoo_template.producteca_connection_ids:
-            connection_exists = False
-            for connection in odoo_template.producteca_connection_ids:
-                if (connection.producteca_account_id.id == producteca_account and
-                    connection.producteca_id == str(producteca_response.get('id'))):
-                    connection_exists = True
-                    break
+            if not sku:
+                _logger.warning(f"Variation {variation_id} has no SKU, skipping connection creation")
+                continue
             
-            if not connection_exists:
-                return [Command.create({
-                    "producteca_account_id": producteca_account,
-                    "producteca_id": producteca_response.get('id'),
-                })]
-            return []
-        else:
-            return [Command.create({
-                "producteca_account_id": producteca_account,
-                "producteca_id": producteca_response.get('id'),
-            })]
+            variant = odoo_template.product_variant_ids.filtered(
+                lambda v: v.default_code == sku
+            )
+            
+            if not variant:
+                _logger.warning(f"No variant found with SKU {sku} for template {odoo_template.name}")
+                continue
+            
+            target_variant = variant[0] if len(variant) > 1 else variant
+            
+            existing_connection = self.env['producteca.product.connections'].sudo().search([
+                ('product_id', '=', target_variant.id),
+                ('producteca_account_id', '=', account.id)
+            ], limit=1)
+            
+            if existing_connection:
+                existing_connection.sudo().write({
+                    'producteca_id': producteca_id,
+                    'producteca_variation_id': variation_id,
+                })
+            else:
+                self.env['producteca.product.connections'].sudo().create({
+                    'product_id': target_variant.id,
+                    'producteca_account_id': account.id,
+                    'producteca_id': producteca_id,
+                    'producteca_variation_id': variation_id,
+                })
     
-    def _update_connection_variants(self, template, account, producteca_id):
-        """Update the product_variant_ids in the connection after variants are created.
+    def _update_connection_variants(self, template, account, producteca_id, producteca_body=None):
+        """Create or update connections for each variant.
         
         This is called after template and variants are created/updated to ensure
-        the connection has references to all variants with SKUs from Producteca.
+        each variant has its own connection with the proper producteca_variation_id.
         
-        If the connection doesn't exist yet, it will be created. This handles cases
-        where we find an existing Odoo template/variant by SKU but it wasn't previously
-        connected to Producteca.
+        ALWAYS creates/updates connections even if variation_id is not known yet,
+        because connections are needed for tracking. The variation_id can be updated later.
         
         Args:
             template (product.template): Template with variants
             account (producteca.account): Producteca account
             producteca_id (str|int): Producteca product ID (template level)
+            producteca_body (dict): Optional - Full producteca data with variations[]
         """
         if not producteca_id:
             _logger.warning(f"Cannot update connection variants: producteca_id is missing for template {template.name} (ID: {template.id})")
             return
-            
-        connection = self.env['producteca.product.connections'].sudo().search([
-            ('producteca_account_id', '=', account.id),
-            ('producteca_id', '=', str(producteca_id)),
-            ('product_tmpl_id', '=', template.id)
-        ], limit=1)
         
-        if not connection:
-            _logger.info(f"Creating new connection for template {template.name} (ID: {template.id}) with Producteca ID {producteca_id}")
-            connection = self.env['producteca.product.connections'].sudo().create({
-                'producteca_account_id': account.id,
-                'producteca_id': str(producteca_id),
-                'product_tmpl_id': template.id,
-            })
+        if not account:
+            _logger.error("Cannot update connection variants: no account provided")
+            return
+        
+        variations = producteca_body.get('variations', []) if producteca_body else []
+        variations_by_sku = {v.get('sku'): v for v in variations if v.get('sku')}
         
         variants_with_sku = template.product_variant_ids.filtered(lambda v: v.default_code)
-        if variants_with_sku:
-            connection.sudo().write({
-                'product_variant_ids': [(6, 0, variants_with_sku.ids)]
-            })
-        else:
-            _logger.warning(f"Template {template.name} (ID: {template.id}) has no variants with SKU to link to connection")
+        
+        if not variants_with_sku:
+            _logger.warning(f"Template {template.name} (ID: {template.id}) has no variants with SKU, cannot create connections")
+            return
+        
+        for variant in variants_with_sku:
+            existing_connection = self.env['producteca.product.connections'].sudo().search([
+                ('product_id', '=', variant.id),
+                ('producteca_account_id', '=', account.id)
+            ], limit=1)
+            
+            variation_data = variations_by_sku.get(variant.default_code, {})
+            variation_id = str(variation_data.get('id')) if variation_data.get('id') else None
+            
+            vals = {'producteca_id': str(producteca_id)}
+            if variation_id:
+                vals['producteca_variation_id'] = variation_id
+            
+            if existing_connection:
+                existing_connection.sudo().write(vals)
+                _logger.info(f"Updated connection for variant {variant.default_code} (ID: {variant.id})")
+            else:
+                vals.update({
+                    'product_id': variant.id,
+                    'producteca_account_id': account.id,
+                })
+                self.env['producteca.product.connections'].sudo().create(vals)
+                if variation_id:
+                    _logger.info(f"Created connection for variant {variant.default_code} with variation_id {variation_id}")
+                else:
+                    _logger.warning(f"Created connection for variant {variant.default_code} without variation_id (will be updated later)")
 
     def _prepare_producteca_to_odoo_product_dict(self, producteca_response, odoo_template, account):
         """Prepare data dictionary for creating/updating product template from Producteca.
@@ -225,9 +263,7 @@ class ProductTemplate(models.Model):
         vals = {
             'is_producteca_product': True,
         }
-        connection_ids = self._handle_producteca_connection_ids(producteca_response, odoo_template, account)
-        if connection_ids:
-            vals['producteca_connection_ids'] = connection_ids
+        
         if account.is_producteca_able_to_modified_products or not odoo_template:
             vals.update({
                 'description': producteca_response.get('notes'),
@@ -355,7 +391,7 @@ class ProductTemplate(models.Model):
                     variation
                 )
         
-        self._update_connection_variants(template, account, producteca_body.get('id'))
+        self._handle_producteca_connection_ids(producteca_body, template, account)
         
         return template
 
@@ -388,7 +424,7 @@ class ProductTemplate(models.Model):
                     variation
                 )
         
-        self._update_connection_variants(odoo_template, account, producteca_body.get('id'))
+        self._handle_producteca_connection_ids(producteca_body, odoo_template, account)
         
         return template_write
 
@@ -433,28 +469,33 @@ class ProductTemplate(models.Model):
         """Create or update product in Producteca marketplace.
         
         Synchronizes template data to Producteca, creating connection if needed.
+        This is called when pushing a product FROM Odoo TO Producteca.
         
         Args:
             account (producteca.account): Account for API calls
             producteca_body (dict): Product data to send
             
         Returns:
-            producteca.product.connections: Created or existing connection
+            bool: True if successful
         """
         client = account.get_client()
         product_service = client.Product
-        product_service.create_if_it_doesnt_exist = account.create_if_dosnt_exist,
-        product = product_service.synchronize(producteca_body)
-
-        self._update_connection_variants(self, account, str(product.id))
+        product_service.create_if_it_doesnt_exist = account.create_if_dosnt_exist
         
-        connection = self.env['producteca.product.connections'].sudo().search([
-            ('product_tmpl_id', '=', self.id), 
-            ('producteca_id', '=', str(product.id)), 
-            ('producteca_account_id', '=', account.id)
-        ], limit=1)
+        product_response = product_service.synchronize(producteca_body)
         
-        return connection if connection else self.env['producteca.product.connections']
+        if hasattr(product_response, 'to_dict'):
+            product_dict = product_response.to_dict()
+        elif isinstance(product_response, dict):
+            product_dict = product_response
+        else:
+            _logger.error(f"Unexpected product_response type: {type(product_response)}")
+            return False
+        
+        if product_dict:
+            self._handle_producteca_connection_ids(product_dict, self, account)
+        
+        return True
 
     def _obtain_pricelist_for_product(self, template, account):
         """Get price lists for product template to send to Producteca.
@@ -522,11 +563,12 @@ class ProductTemplate(models.Model):
         for variant in template.product_variant_ids:
             if not variant.default_code:  # Skip variants without SKU
                 continue
-                
+            
+            all_warehouses = account.warehouse_ids | account.default_warehouse_id
             stock_by_warehouse = self.env['stock.quant'].search([
                 ('product_id', '=', variant.id), 
                 ('location_id.usage', '=', 'internal'), 
-                ('warehouse_id', 'in', account.warehouse_ids.ids)
+                ('warehouse_id', 'in', all_warehouses.ids)
             ])
             
             if stock_by_warehouse:
@@ -599,9 +641,11 @@ class ProductTemplate(models.Model):
                     {
                         "quantity": stock.quantity,
                         "availableQuantity": stock.available_quantity,
-                        "warehouse": stock.warehouse_id.producteca_warehouse_name if stock.warehouse_id else None
+                        "warehouse": stock.warehouse_id._get_producteca_warehouse_name(account) if stock.warehouse_id else None
                     } for stock in variant_stocks[0]['stocks']
                 ]
+            if variation_dict.get("stocks") and variation_dict["stocks"][-1].get('warehouse') is None:
+                continue
             
             variations.append(variation_dict)
         

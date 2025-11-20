@@ -58,21 +58,17 @@ class ProductPricelist(models.Model):
         ])
         
         for connection in producteca_connections:
-            template = connection.product_tmpl_id
+            product = connection.product_id
             
-            if not template:
+            if not product or not product.default_code:
                 continue
             
             if use_list_price:
-                if template.list_price:
-                    first_variant = template.product_variant_ids[0] if template.product_variant_ids else None
-                    if not first_variant:
-                        continue
-                        
+                if product.product_tmpl_id.list_price:
                     sync_data = {
-                        'sku': first_variant.default_code,
+                        'sku': product.default_code,
                         'prices': [{
-                            'amount': template.list_price,
+                            'amount': product.product_tmpl_id.list_price,
                             'currency': "Usd" if account.company_id.currency_id.id == self.env.ref('base.USD').id else "Local",
                             'priceList': 'Default'
                         }]
@@ -85,15 +81,11 @@ class ProductPricelist(models.Model):
                 if not pricelist_name:
                     _logger.warning(f"Pricelist {pricelist.name} (ID: {pricelist.id}) no tiene producteca_pricelist_name configurado. Saltando sincronización.")
                     continue
-                
-                first_variant = template.product_variant_ids[0] if template.product_variant_ids else None
-                if not first_variant:
-                    continue
                     
-                price = pricelist._get_product_price(first_variant, 1)
+                price = pricelist._get_product_price(product, 1)
                 if price:
                     sync_data = {
-                        'sku': first_variant.default_code,
+                        'sku': product.default_code,
                         'prices': [{
                             'amount': price,
                             'currency': "Usd" if pricelist.currency_id.id == self.env.ref('base.USD').id else "Local",

@@ -71,6 +71,7 @@ class ProductecaAccountConfig(models.Model):
         'stock.warehouse', 
         string='Default Warehouse', 
         required=True,
+        domain="[('id', 'not in', warehouse_ids)]",
         help="Default warehouse used for stock operations when not specified."
     )
 
@@ -145,6 +146,23 @@ class ProductecaAccountConfig(models.Model):
                         % pricelist.name
                     )
 
+    @api.constrains('default_warehouse_id', 'warehouse_ids')
+    def _check_default_warehouse_restrictions(self):
+        for record in self:
+            if record.default_warehouse_id and record.default_warehouse_id in record.warehouse_ids:
+                raise ValidationError(
+                    _("The default warehouse '%s' cannot be included in the additional warehouses. "
+                      "Please remove it from the additional warehouses or select a different default warehouse.") 
+                    % record.default_warehouse_id.name
+                )
+            for warehouse in record.warehouse_ids:
+                if not warehouse.producteca_warehouse_name:
+                    raise ValidationError(
+                        _("Additional warehouse '%s' must have a Producteca Warehouse Name configured. "
+                          "Please set the Producteca Warehouse Name for this warehouse.") 
+                        % warehouse.name
+                    )
+
     @api.onchange('default_pricelist_id')
     def _onchange_default_pricelist_id(self):
         if self.default_pricelist_id and self.default_pricelist_id in self.pricelist_ids:
@@ -154,6 +172,16 @@ class ProductecaAccountConfig(models.Model):
     def _onchange_pricelist_ids(self):
         if self.default_pricelist_id and self.default_pricelist_id in self.pricelist_ids:
             self.default_pricelist_id = False
+
+    @api.onchange('default_warehouse_id')
+    def _onchange_default_warehouse_id(self):
+        if self.default_warehouse_id and self.default_warehouse_id in self.warehouse_ids:
+            self.warehouse_ids = [(3, self.default_warehouse_id.id)]
+
+    @api.onchange('warehouse_ids')
+    def _onchange_warehouse_ids(self):
+        if self.default_warehouse_id and self.default_warehouse_id in self.warehouse_ids:
+            self.default_warehouse_id = False
 
     @api.onchange('is_odoo_able_to_update_producteca_prices', 'default_pricelist_id')
     def _onchange_price_sync_warning(self):

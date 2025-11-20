@@ -272,7 +272,7 @@ class TestProductTemplateProducteca(TransactionCase):
         self.assertTrue(result)
 
     def test_12_update_connection_variants_tracking(self):
-        """Test _update_connection_variants creates/updates connection properly"""
+        """Test _update_connection_variants creates variant connections properly"""
         self.account.is_producteca_able_to_create_products = True
         
         template = self.env['product.template'].create({
@@ -286,13 +286,23 @@ class TestProductTemplateProducteca(TransactionCase):
         })
         
         template_obj = self.env['product.template']
-        template_obj._update_connection_variants(template, self.account, 'PROD_TRACK_001')
+        variation_data = {
+            'id': 'VAR_TRACK_001',
+            'sku': 'SKU_TRACK_001',
+        }
+        template_obj._update_connection_variants(
+            template, 
+            self.account, 
+            'PROD_TRACK_001',
+            variation_data
+        )
         
         connection = self.env['producteca.product.connections'].search([
-            ('product_tmpl_id', '=', template.id),
+            ('product_id', '=', variant.id),
             ('producteca_account_id', '=', self.account.id),
-            ('producteca_id', '=', 'PROD_TRACK_001'),
+            ('producteca_variation_id', '=', 'VAR_TRACK_001'),
         ])
         
         self.assertTrue(connection)
-        self.assertIn(variant, connection.product_variant_ids)
+        self.assertEqual(connection.product_id, variant)
+        self.assertEqual(connection.producteca_id, 'PROD_TRACK_001')

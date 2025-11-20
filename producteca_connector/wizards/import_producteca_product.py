@@ -132,7 +132,9 @@ class ProductecaProductsWizard(models.TransientModel):
         else:
             raise UserError('La cuenta de producteca no tiene permiso de crear productos en Odoo')
         if connections and not self.update_if_exists:
-            product_names = ', '.join([str(connection.product_tmpl_id.name) for connection in connections if connection.product_tmpl_id])
+            # Obtener templates únicos desde las conexiones de variantes
+            templates = connections.mapped('product_id.product_tmpl_id')
+            product_names = ', '.join([str(tmpl.name) for tmpl in templates if tmpl])
             raise UserError('Los productos %s ya existen en Odoo con lo que no se importarán' % product_names)
         if connections and self.update_if_exists:
             products_to_update = connections.mapped('producteca_id')
