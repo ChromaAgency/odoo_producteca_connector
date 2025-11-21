@@ -344,8 +344,8 @@ class ProductTemplate(models.Model):
         Returns:
             product.product: Found or created variant, or None if no permissions
         """
-        if not sku:
-            _logger.warning(f"Variation without SKU, cannot create/update variant")
+        if not sku or sku == 'null':
+            _logger.warning(f"Variation without valid SKU (sku={sku}), cannot create/update variant")
             return None
         
         existing_variant = template.product_variant_ids.filtered(lambda v: v.default_code == sku)
