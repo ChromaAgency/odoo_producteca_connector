@@ -350,10 +350,30 @@ class ProductTemplate(models.Model):
                     if variation_data.get('barcode'):
                         update_vals['barcode'] = variation_data['barcode']
                     if update_vals:
-                        variant.sudo().write(update_vals)
+                        try:
+                            variant.sudo().write(update_vals)
+                        except Exception as e:
+                            _logger.warning(f"Error updating variant with barcode {variation_data.get('barcode')}: {e}")
+                            if 'barcode' in update_vals:
+                                update_vals.pop('barcode')
+                                try:
+                                    variant.sudo().write(update_vals)
+                                    _logger.info(f"Updated variant without barcode successfully")
+                                except Exception as e2:
+                                    _logger.error(f"Error updating variant even without barcode: {e2}")
                     return variant
         
-        return self.env['product.product'].sudo().create(variant_vals)
+        try:
+            return self.env['product.product'].sudo().create(variant_vals)
+        except Exception as e:
+            _logger.warning(f"Error creating variant with barcode {variant_vals.get('barcode')}: {e}")
+            if 'barcode' in variant_vals:
+                variant_vals.pop('barcode')
+                try:
+                    return self.env['product.product'].sudo().create(variant_vals)
+                except Exception as e2:
+                    _logger.error(f"Error creating variant even without barcode: {e2}")
+                    raise
 
     def _create_product_from_producteca(self, account, producteca_body):
         """Create new product template and variants from Producteca data.
