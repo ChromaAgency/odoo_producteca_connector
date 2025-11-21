@@ -303,8 +303,9 @@ class ProductTemplate(models.Model):
         This is called after template and variants are created/updated to ensure
         each variant has its own connection with the proper producteca_variation_id.
         
-        ALWAYS creates/updates connections even if variation_id is not known yet,
-        because connections are needed for tracking. The variation_id can be updated later.
+        CRITICAL: This ALWAYS creates/updates connections regardless of account permissions,
+        because connections are ESSENTIAL for all Producteca processes (orders, shipments, stock, etc.).
+        Even if variation_id is not known yet, the connection is created and can be updated later.
         
         Args:
             template (product.template): Template with variants
@@ -574,10 +575,8 @@ class ProductTemplate(models.Model):
                     producteca_body['variations'], 
                     account
                 )
-            else:
-                _logger.warning(f"Skipping variant sync for template {odoo_template.name}: account has no creation or modification permissions")
         
-        self._handle_producteca_connection_ids(producteca_body, odoo_template, account)
+        self._update_connection_variants(odoo_template, account, producteca_body.get('id'), producteca_body)
         
         return template_write
 

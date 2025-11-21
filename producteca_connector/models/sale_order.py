@@ -333,7 +333,6 @@ class SaleOrder(models.Model):
                 template._update_product_from_producteca(account, producteca_body_queue, template)
             else:
                 template._update_connection_variants(template, account, producteca_id, producteca_body_queue)
-                _logger.info(f"Product {template.name} found but not modified (account doesn't allow modifications). Connection updated.")
             
             product = odoo_variant
         
@@ -346,7 +345,7 @@ class SaleOrder(models.Model):
                 )
             
             template = self.env['product.template']._create_product_from_producteca(account, producteca_body_queue)
-            product = template.product_variant_ids.filtered(lambda v: v.default_code == producteca_body_queue.get('sku'))[:1]
+            product = template.product_variant_ids.filtered(lambda v: v.default_code == sku)[:1]
             if not product and template.product_variant_ids:
                 product = template.product_variant_ids[0]
         
@@ -355,7 +354,6 @@ class SaleOrder(models.Model):
     def _process_sale_order_lines(self, lines, warehouse, order_lines, account):
         sale_order_lines = []
         for line in lines:
-            _logger.info(line)
             product_id = line.get('product', {}).get('id')
             variation_id = line.get('variation', {}).get('id')
             sku = line.get('sku') or (line.get('variation', {}).get('sku') if line.get('variation') else None)
