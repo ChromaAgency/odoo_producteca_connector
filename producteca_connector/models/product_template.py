@@ -48,69 +48,7 @@ class ProductTemplate(models.Model):
         help="Connections between this product template and Producteca marketplace products."
     )
 
-    def _handle_producteca_attribute_dict(self, producteca_response, odoo_template):
-        """Handle product attributes from Producteca response.
-        
-        Creates or updates attribute lines on the product template based on
-        attributes provided by Producteca marketplace.
-        
-        Args:
-            producteca_response (dict): Response from Producteca API containing attributes
-            odoo_template (product.template): Existing template to update, or False for new products
-            
-        Returns:
-            list: Command list for attribute_line_ids field operations
-        """
-        if not producteca_response.get('variations'):
-            return []
-        
-        attributes_dict = {}
-        for variation in producteca_response['variations']:
-            if not variation.get('attributes'):
-                continue
-            for attr in variation['attributes']:
-                if not attr.get('key') or not attr.get('value'):
-                    _logger.warning(f"Skipping attribute without key or value: {attr}")
-                    continue
-                
-                attr_key = attr['key']
-                attr_value = attr['value']
-                
-                if attr_key not in attributes_dict:
-                    attributes_dict[attr_key] = set()
-                attributes_dict[attr_key].add(attr_value)
-        
-        if not attributes_dict:
-            return []
-        
-        existing_lines = odoo_template.attribute_line_ids if odoo_template else []
-        existing_lines_dict = {line.attribute_id.name: line for line in existing_lines}
-        
-        attribute_line_ops = []
-        
-        for attr_key, attr_values in attributes_dict.items():
-            attribute_id = self.env['product.attribute'].sudo().search([('name', '=', attr_key)], limit=1)
-            if not attribute_id:
-                attribute_id = self.env['product.attribute'].sudo().create({'name': attr_key})
-            
-            if attr_key in existing_lines_dict:
-                existing_line = existing_lines_dict[attr_key]
-                existing_value_names = set(existing_line.value_ids.mapped('name'))
-                new_values = attr_values - existing_value_names
-                
-                if new_values:
-                    value_commands = [(0, 0, {'name': val, 'attribute_id': attribute_id.id}) for val in new_values]
-                    attribute_line_ops.append((1, existing_line.id, {
-                        'value_ids': value_commands
-                    }))
-            else:
-                value_commands = [(0, 0, {'name': val, 'attribute_id': attribute_id.id}) for val in attr_values]
-                attribute_line_ops.append((0, 0, {
-                    'attribute_id': attribute_id.id,
-                    'value_ids': value_commands
-                }))
-        
-        return attribute_line_ops
+
 
     def _handle_producteca_tags_dict(self, producteca_response):
         """Handle product tags from Producteca response.
@@ -307,8 +245,6 @@ class ProductTemplate(models.Model):
             
             if producteca_response.get('tags'):
                 vals['product_tag_ids'] = self._handle_producteca_tags_dict(producteca_response)
-            if producteca_response.get('attributes'):
-                vals['attribute_line_ids'] = self._handle_producteca_attribute_dict(producteca_response, odoo_template)
 
             dimensions = producteca_response.get('dimensions', {})
             if dimensions:
@@ -318,77 +254,63 @@ class ProductTemplate(models.Model):
         
         return vals
 
-    def _find_or_create_variant_by_sku(self, template, sku, variation_data):
+    def _find_or_create_variant_by_sku(self, template, sku, variation_data, account):
         """Find existing variant by SKU or create new one.
         
-        Searches for existing product.product with matching SKU. If found, returns it.
-        Otherwise, creates a new variant for the template.
+        Searches for existing product.product with matching SKU in this template. 
+        If found, updates it (if permissions allow). Otherwise, creates a new variant 
+        for the template without touching attributes.
         
         Args:
             template (product.template): Template to create variant for
             sku (str): SKU to search/assign
             variation_data (dict): Producteca variation data including barcode
+            account (producteca.account): Account configuration for permissions
             
         Returns:
             product.product: Found or created variant
         """
-        if sku:
-            existing_variant = self.env['product.product'].sudo().search([
-                ('default_code', '=', sku)
-            ], limit=1)
-            if existing_variant:
-                return existing_variant
+        if not sku:
+            _logger.warning(f"Variation without SKU, cannot create/update variant")
+            return None
+        
+        existing_variant = template.product_variant_ids.filtered(lambda v: v.default_code == sku)
+        
+        if existing_variant:
+            existing_variant = existing_variant[0]
+            if account.is_producteca_able_to_modified_products:
+                update_vals = {}
+                if variation_data.get('barcode') and not existing_variant.barcode:
+                    update_vals['barcode'] = variation_data['barcode']
+                if update_vals:
+                    try:
+                        existing_variant.sudo().write(update_vals)
+                        _logger.info(f"Updated variant {sku} with barcode")
+                    except Exception as e:
+                        _logger.warning(f"Error updating variant {sku} with barcode: {e}")
+            return existing_variant
         
         variant_vals = {
             'product_tmpl_id': template.id,
+            'default_code': sku,
         }
-        if sku:
-            variant_vals['default_code'] = sku
         if variation_data.get('barcode'):
             variant_vals['barcode'] = variation_data['barcode']
-            
-        if variation_data.get('attributes'):
-            for variant in template.product_variant_ids:
-                match = True
-                for attr in variation_data['attributes']:
-                    attr_name = attr.get('key')
-                    attr_value = attr.get('value')
-                    variant_attr = variant.product_template_variant_value_ids.filtered(
-                        lambda v: v.attribute_id.name == attr_name and v.name == attr_value
-                    )
-                    if not variant_attr:
-                        match = False
-                        break
-                if match:
-                    update_vals = {}
-                    if sku:
-                        update_vals['default_code'] = sku
-                    if variation_data.get('barcode'):
-                        update_vals['barcode'] = variation_data['barcode']
-                    if update_vals:
-                        try:
-                            variant.sudo().write(update_vals)
-                        except Exception as e:
-                            _logger.warning(f"Error updating variant with barcode {variation_data.get('barcode')}: {e}")
-                            if 'barcode' in update_vals:
-                                update_vals.pop('barcode')
-                                try:
-                                    variant.sudo().write(update_vals)
-                                    _logger.info(f"Updated variant without barcode successfully")
-                                except Exception as e2:
-                                    _logger.error(f"Error updating variant even without barcode: {e2}")
-                    return variant
         
         try:
-            return self.env['product.product'].sudo().create(variant_vals)
+            new_variant = self.env['product.product'].sudo().create(variant_vals)
+            _logger.info(f"Created new variant {sku} for template {template.name}")
+            return new_variant
         except Exception as e:
-            _logger.warning(f"Error creating variant with barcode {variant_vals.get('barcode')}: {e}")
+            _logger.warning(f"Error creating variant {sku} with barcode {variant_vals.get('barcode')}: {e}")
             if 'barcode' in variant_vals:
                 variant_vals.pop('barcode')
                 try:
-                    return self.env['product.product'].sudo().create(variant_vals)
+                    new_variant = self.env['product.product'].sudo().create(variant_vals)
+                    _logger.info(f"Created new variant {sku} without barcode")
+                    return new_variant
                 except Exception as e2:
-                    _logger.error(f"Error creating variant even without barcode: {e2}")
+                    _logger.error(f"Error creating variant {sku} even without barcode: {e2}")
                     raise
 
     def _create_product_from_producteca(self, account, producteca_body):
@@ -428,7 +350,8 @@ class ProductTemplate(models.Model):
                 self._find_or_create_variant_by_sku(
                     template, 
                     variation.get('sku'), 
-                    variation
+                    variation,
+                    account
                 )
         
         self._handle_producteca_connection_ids(producteca_body, template, account)
@@ -461,7 +384,8 @@ class ProductTemplate(models.Model):
                 self._find_or_create_variant_by_sku(
                     odoo_template, 
                     variation.get('sku'), 
-                    variation
+                    variation,
+                    account
                 )
         
         self._handle_producteca_connection_ids(producteca_body, odoo_template, account)
