@@ -61,40 +61,56 @@ class ProductTemplate(models.Model):
         Returns:
             list: Command list for attribute_line_ids field operations
         """
-        existing_lines = odoo_template.attribute_line_ids if odoo_template else []
+        if not producteca_response.get('variations'):
+            return []
         
+        attributes_dict = {}
+        for variation in producteca_response['variations']:
+            if not variation.get('attributes'):
+                continue
+            for attr in variation['attributes']:
+                if not attr.get('key') or not attr.get('value'):
+                    _logger.warning(f"Skipping attribute without key or value: {attr}")
+                    continue
+                
+                attr_key = attr['key']
+                attr_value = attr['value']
+                
+                if attr_key not in attributes_dict:
+                    attributes_dict[attr_key] = set()
+                attributes_dict[attr_key].add(attr_value)
+        
+        if not attributes_dict:
+            return []
+        
+        existing_lines = odoo_template.attribute_line_ids if odoo_template else []
         existing_lines_dict = {line.attribute_id.name: line for line in existing_lines}
         
         attribute_line_ops = []
         
-        for attr in producteca_response['attributes']:
-            if not attr.get('key') or not attr.get('value'):
-                _logger.warning(f"Skipping attribute without key or value: {attr}")
-                continue
-                
-            attribute_id = self.env['product.attribute'].sudo().search([('name', '=', attr['key'])], limit=1)
+        for attr_key, attr_values in attributes_dict.items():
+            attribute_id = self.env['product.attribute'].sudo().search([('name', '=', attr_key)], limit=1)
+            if not attribute_id:
+                attribute_id = self.env['product.attribute'].sudo().create({'name': attr_key})
             
-            if attribute_id:
-                if attribute_id.name in existing_lines_dict:
-                    existing_line = existing_lines_dict[attribute_id.name]
-                    
-                    existing_value = existing_line.value_ids.filtered(lambda v: v.name == attr['value'])
-                    
-                    if not existing_value:
-                        attribute_line_ops.append((1, existing_line.id, {
-                            'value_ids': [(0, 0, {'name': attr['value'], 'attribute_id': attribute_id.id})]
-                        }))
-                    else:
-                        continue
-                else:
-                    attribute_line_ops.append((0, 0, {
-                        'attribute_id': attribute_id.id,
-                        'value_ids': [(0, 0, {'name': attr['value'], 'attribute_id': attribute_id.id})]
+            if attr_key in existing_lines_dict:
+                existing_line = existing_lines_dict[attr_key]
+                existing_value_names = set(existing_line.value_ids.mapped('name'))
+                new_values = attr_values - existing_value_names
+                
+                if new_values:
+                    value_commands = [(0, 0, {'name': val, 'attribute_id': attribute_id.id}) for val in new_values]
+                    attribute_line_ops.append((1, existing_line.id, {
+                        'value_ids': value_commands
                     }))
+            else:
+                value_commands = [(0, 0, {'name': val, 'attribute_id': attribute_id.id}) for val in attr_values]
+                attribute_line_ops.append((0, 0, {
+                    'attribute_id': attribute_id.id,
+                    'value_ids': value_commands
+                }))
         
-        if attribute_line_ops:
-            return [(5, 0, 0)] + attribute_line_ops
-        return []
+        return attribute_line_ops
 
     def _handle_producteca_tags_dict(self, producteca_response):
         """Handle product tags from Producteca response.
