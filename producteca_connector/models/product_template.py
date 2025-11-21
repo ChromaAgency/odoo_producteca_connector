@@ -68,6 +68,10 @@ class ProductTemplate(models.Model):
         attribute_line_ops = []
         
         for attr in producteca_response['attributes']:
+            if not attr.get('key') or not attr.get('value'):
+                _logger.warning(f"Skipping attribute without key or value: {attr}")
+                continue
+                
             attribute_id = self.env['product.attribute'].sudo().search([('name', '=', attr['key'])], limit=1)
             
             if attribute_id:
