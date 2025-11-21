@@ -257,8 +257,7 @@ class ProductTemplate(models.Model):
     def _update_or_create_variants_from_producteca(self, template, variations, account):
         """Update or create variants from Producteca variations.
         
-        Handles the constraint that Odoo cannot have multiple variants without attributes.
-        Updates the default variant for single or first variation, warns for additional ones.
+        Updates existing variants by SKU or creates new ones for each variation.
         
         Args:
             template (product.template): Template to update variants for
@@ -268,21 +267,13 @@ class ProductTemplate(models.Model):
         if not variations:
             return
         
-        if len(variations) == 1:
-            variation = variations[0]
-            default_variant = template.product_variant_ids[0] if template.product_variant_ids else None
-            if default_variant:
-                self._update_variant_from_variation(default_variant, variation)
-        else:
-            for idx, variation in enumerate(variations):
-                if idx == 0 and template.product_variant_ids:
-                    default_variant = template.product_variant_ids[0]
-                    self._update_variant_from_variation(default_variant, variation)
-                else:
-                    _logger.warning(
-                        f"Skipping variation {variation.get('sku')} for template {template.name} - "
-                        f"cannot create multiple variants without attributes"
-                    )
+        for variation in variations:
+            self._find_or_create_variant_by_sku(
+                template,
+                variation.get('sku'),
+                variation,
+                account
+            )
     
     def _update_variant_from_variation(self, variant, variation_data):
         """Update a single variant with data from Producteca variation.
