@@ -257,7 +257,9 @@ class ProductTemplate(models.Model):
     def _update_or_create_variants_from_producteca(self, template, variations, account):
         """Update or create variants from Producteca variations.
         
-        Updates existing variants by SKU or creates new ones for each variation.
+        Handles the special case where Odoo automatically creates an empty variant
+        when a template is created. If the product has only 1 variation and the template
+        has a variant without SKU, we update that variant instead of creating a new one.
         
         Args:
             template (product.template): Template to update variants for
@@ -266,6 +268,30 @@ class ProductTemplate(models.Model):
         """
         if not variations:
             return
+        
+        empty_variant = template.product_variant_ids.filtered(lambda v: not v.default_code)
+        
+        if len(variations) == 1:
+            if empty_variant and len(empty_variant) == 1 and account.is_producteca_able_to_modified_products:
+                variation = variations[0]
+                _logger.info(f"Found empty variant for template {template.name}, updating with SKU {variation.get('sku')}")
+                self._update_variant_from_variation(empty_variant, variation)
+                return
+        
+        if len(variations) > 1 and empty_variant and len(empty_variant) == 1:
+            if account.is_producteca_able_to_modified_products:
+                first_variation = variations[0]
+                _logger.info(f"Multiple variations detected, updating empty variant with first SKU {first_variation.get('sku')}")
+                self._update_variant_from_variation(empty_variant, first_variation)
+                
+                for variation in variations[1:]:
+                    self._find_or_create_variant_by_sku(
+                        template,
+                        variation.get('sku'),
+                        variation,
+                        account
+                    )
+                return
         
         for variation in variations:
             self._find_or_create_variant_by_sku(
@@ -306,8 +332,8 @@ class ProductTemplate(models.Model):
         """Find existing variant by SKU or create new one.
         
         Searches for existing product.product with matching SKU in this template. 
-        If found, updates it (if permissions allow). Otherwise, creates a new variant 
-        for the template without touching attributes.
+        If found, updates it (ONLY if account.is_producteca_able_to_modified_products). 
+        Otherwise, creates a new variant (ONLY if account.is_producteca_able_to_create_products).
         
         Args:
             template (product.template): Template to create variant for
@@ -316,7 +342,7 @@ class ProductTemplate(models.Model):
             account (producteca.account): Account configuration for permissions
             
         Returns:
-            product.product: Found or created variant
+            product.product: Found or created variant, or None if no permissions
         """
         if not sku:
             _logger.warning(f"Variation without SKU, cannot create/update variant")
@@ -336,7 +362,13 @@ class ProductTemplate(models.Model):
                         _logger.info(f"Updated variant {sku} with barcode")
                     except Exception as e:
                         _logger.warning(f"Error updating variant {sku} with barcode: {e}")
+            else:
+                _logger.info(f"Variant {sku} exists but account doesn't have modification permissions")
             return existing_variant
+        
+        if not account.is_producteca_able_to_create_products:
+            _logger.warning(f"Cannot create variant {sku}: account doesn't have creation permissions")
+            return None
         
         variant_vals = {
             'product_tmpl_id': template.id,
@@ -408,8 +440,6 @@ class ProductTemplate(models.Model):
         """Update existing product template from Producteca data.
         
         Updates template fields and manages variants based on Producteca variations.
-        ALWAYS updates the connection (for tracking), but only modifies product
-        data if account permissions allow it.
         
         Args:
             account (producteca.account): Account configuration
@@ -425,14 +455,15 @@ class ProductTemplate(models.Model):
         if product_dict:
             template_write = odoo_template.sudo().write(product_dict)
         
-        if account.is_producteca_able_to_modified_products and producteca_body.get('variations'):
-            for variation in producteca_body['variations']:
-                self._find_or_create_variant_by_sku(
+        if producteca_body.get('variations'):
+            if account.is_producteca_able_to_create_products or account.is_producteca_able_to_modified_products:
+                self._update_or_create_variants_from_producteca(
                     odoo_template, 
-                    variation.get('sku'), 
-                    variation,
+                    producteca_body['variations'], 
                     account
                 )
+            else:
+                _logger.warning(f"Skipping variant sync for template {odoo_template.name}: account has no creation or modification permissions")
         
         self._handle_producteca_connection_ids(producteca_body, odoo_template, account)
         
@@ -716,33 +747,23 @@ class ProductTemplate(models.Model):
             )           
             
             products_response = client.Product.search(params=params)
-            total_products = products_response.count if hasattr(products_response, 'count') else 0            
+            total_products = products_response.count if hasattr(products_response, 'count') else 0
+            processed = 0
             
-            for result in products_response.results:
-                _logger.info(result)
-                product_id = result.id
-                _logger.info(f"Processing product ID: {product_id}")
-                if not product_id:
-                    continue                
-                
-                self.with_delay().get_product_from_producteca_and_create(account, product_id)            
-            
-            processed = len(products_response.results)
             while processed < total_products:
-                params.skip = processed
-                products_response = client.Product.search(params=params)
-                
                 for result in products_response.results:
                     product_id = result.id
                     _logger.info(f"Processing product ID: {product_id}")
                     if not product_id:
-                        continue                    
+                        continue
                     
                     self.with_delay().get_product_from_producteca_and_create(account, product_id)
                 
-                processed += len(products_response.results)                
+                processed += len(products_response.results)
                 
-                if len(products_response.results) == 0:
+                if processed >= total_products or len(products_response.results) == 0:
                     break
+                
+                params.skip = processed
                     
         return True
