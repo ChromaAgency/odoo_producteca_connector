@@ -254,6 +254,63 @@ class ProductTemplate(models.Model):
         
         return vals
 
+    def _update_or_create_variants_from_producteca(self, template, variations, account):
+        """Update or create variants from Producteca variations.
+        
+        Handles the constraint that Odoo cannot have multiple variants without attributes.
+        Updates the default variant for single or first variation, warns for additional ones.
+        
+        Args:
+            template (product.template): Template to update variants for
+            variations (list): List of Producteca variations
+            account (producteca.account): Account configuration
+        """
+        if not variations:
+            return
+        
+        if len(variations) == 1:
+            variation = variations[0]
+            default_variant = template.product_variant_ids[0] if template.product_variant_ids else None
+            if default_variant:
+                self._update_variant_from_variation(default_variant, variation)
+        else:
+            for idx, variation in enumerate(variations):
+                if idx == 0 and template.product_variant_ids:
+                    default_variant = template.product_variant_ids[0]
+                    self._update_variant_from_variation(default_variant, variation)
+                else:
+                    _logger.warning(
+                        f"Skipping variation {variation.get('sku')} for template {template.name} - "
+                        f"cannot create multiple variants without attributes"
+                    )
+    
+    def _update_variant_from_variation(self, variant, variation_data):
+        """Update a single variant with data from Producteca variation.
+        
+        Args:
+            variant (product.product): Variant to update
+            variation_data (dict): Producteca variation data
+        """
+        update_vals = {}
+        if variation_data.get('sku'):
+            update_vals['default_code'] = variation_data['sku']
+        if variation_data.get('barcode'):
+            update_vals['barcode'] = variation_data['barcode']
+        
+        if update_vals:
+            try:
+                variant.sudo().write(update_vals)
+                _logger.info(f"Updated variant with SKU {variation_data.get('sku')}")
+            except Exception as e:
+                _logger.warning(f"Error updating variant with barcode {variation_data.get('barcode')}: {e}")
+                if 'barcode' in update_vals:
+                    update_vals.pop('barcode')
+                    try:
+                        variant.sudo().write(update_vals)
+                        _logger.info(f"Updated variant with SKU {variation_data.get('sku')} without barcode")
+                    except Exception as e2:
+                        _logger.error(f"Error updating variant even without barcode: {e2}")
+
     def _find_or_create_variant_by_sku(self, template, sku, variation_data, account):
         """Find existing variant by SKU or create new one.
         
@@ -346,13 +403,11 @@ class ProductTemplate(models.Model):
             raise
         
         if producteca_body.get('variations'):
-            for variation in producteca_body['variations']:
-                self._find_or_create_variant_by_sku(
-                    template, 
-                    variation.get('sku'), 
-                    variation,
-                    account
-                )
+            self._update_or_create_variants_from_producteca(
+                template, 
+                producteca_body['variations'], 
+                account
+            )
         
         self._handle_producteca_connection_ids(producteca_body, template, account)
         
