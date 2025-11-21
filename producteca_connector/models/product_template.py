@@ -50,6 +50,163 @@ class ProductTemplate(models.Model):
 
 
 
+    def _get_or_create_product_attribute(self, attribute_key):
+        """Get or create a product.attribute for a Producteca attribute key.
+        
+        Normalizes attribute name to title case to avoid duplicates.
+        Always searches for or creates attributes with create_variant='dynamic'.
+        Will NOT reuse attributes with create_variant='always'.
+        
+        Args:
+            attribute_key (str): Attribute name from Producteca
+            
+        Returns:
+            product.attribute: Attribute record
+        """
+        normalized_key = attribute_key.strip().title() if attribute_key else ''
+        if not normalized_key:
+            return None
+        
+        attribute = self.env['product.attribute'].sudo().search([
+            ('name', '=', normalized_key),
+            ('create_variant', '=', 'dynamic')
+        ], limit=1)
+        
+        if not attribute:
+            attribute = self.env['product.attribute'].sudo().create({
+                'name': normalized_key,
+                'create_variant': 'dynamic'
+            })
+        
+        return attribute
+
+    def _get_or_create_attribute_value(self, attribute, value_name):
+        """Get or create a product.attribute.value for a Producteca attribute value.
+        
+        Args:
+            attribute (product.attribute): Attribute record
+            value_name (str): Value name from Producteca
+            
+        Returns:
+            product.attribute.value: Attribute value record or None if invalid
+        """
+        if not attribute or not value_name:
+            return None
+        
+        normalized_value = str(value_name).strip()
+        if not normalized_value:
+            return None
+        
+        attr_value = self.env['product.attribute.value'].sudo().search([
+            ('attribute_id', '=', attribute.id),
+            ('name', '=', normalized_value)
+        ], limit=1)
+        
+        if not attr_value:
+            attr_value = self.env['product.attribute.value'].sudo().create({
+                'attribute_id': attribute.id,
+                'name': normalized_value
+            })
+        
+        return attr_value
+
+    def _prepare_template_attribute_lines(self, variations):
+        """Prepare attribute lines for template from Producteca variations.
+        
+        Analyzes all variations to extract unique attributes and their values.
+        Skips attributes with empty keys or values.
+        
+        Args:
+            variations (list): List of Producteca variations
+            
+        Returns:
+            list: Command list for attribute_line_ids
+        """
+        if not variations:
+            return []
+        
+        attributes_dict = {}
+        
+        for variation in variations:
+            if not variation.get('attributes'):
+                continue
+                
+            for attr in variation['attributes']:
+                key = attr.get('key', '').strip()
+                value = attr.get('value', '').strip() if attr.get('value') else ''
+                
+                # Skip attributes with empty key or value
+                if not key or not value:
+                    continue
+                
+                # Normalize key to title case
+                normalized_key = key.title()
+                
+                if normalized_key not in attributes_dict:
+                    attributes_dict[normalized_key] = set()
+                attributes_dict[normalized_key].add(value)
+        
+        if not attributes_dict:
+            return []
+        
+        attribute_lines = []
+        for attr_key, attr_values in attributes_dict.items():
+            attribute = self._get_or_create_product_attribute(attr_key)
+            if not attribute:
+                continue
+            
+            value_ids = []
+            for value_name in attr_values:
+                attr_value = self._get_or_create_attribute_value(attribute, value_name)
+                if attr_value:
+                    value_ids.append(attr_value.id)
+            
+            if value_ids:
+                attribute_lines.append(Command.create({
+                    'attribute_id': attribute.id,
+                    'value_ids': [Command.set(value_ids)]
+                }))
+        
+        return attribute_lines
+
+    def _get_variant_attribute_values(self, template, variation):
+        """Get product.template.attribute.value IDs for a variation.
+        
+        Args:
+            template (product.template): Template to search PTAVs from
+            variation (dict): Producteca variation data
+            
+        Returns:
+            list: IDs of product.template.attribute.value records
+        """
+        if not variation.get('attributes'):
+            return []
+        
+        value_ids = []
+        for attr in variation['attributes']:
+            key = attr.get('key', '').strip()
+            value = attr.get('value', '').strip() if attr.get('value') else ''
+            
+            if not key or not value:
+                continue
+            
+            attribute = self._get_or_create_product_attribute(key)
+            if not attribute:
+                continue
+                
+            attr_value = self._get_or_create_attribute_value(attribute, value)
+            if not attr_value:
+                continue
+            
+            ptav = template.attribute_line_ids.product_template_value_ids.filtered(
+                lambda p: p.attribute_id == attribute and p.product_attribute_value_id == attr_value
+            )
+            
+            if ptav:
+                value_ids.append(ptav.id)
+        
+        return value_ids
+
     def _handle_producteca_tags_dict(self, producteca_response):
         """Handle product tags from Producteca response.
         
@@ -187,17 +344,12 @@ class ProductTemplate(models.Model):
             
             if existing_connection:
                 existing_connection.sudo().write(vals)
-                _logger.info(f"Updated connection for variant {variant.default_code} (ID: {variant.id})")
             else:
                 vals.update({
                     'product_id': variant.id,
                     'producteca_account_id': account.id,
                 })
                 self.env['producteca.product.connections'].sudo().create(vals)
-                if variation_id:
-                    _logger.info(f"Created connection for variant {variant.default_code} with variation_id {variation_id}")
-                else:
-                    _logger.warning(f"Created connection for variant {variant.default_code} without variation_id (will be updated later)")
 
     def _prepare_producteca_to_odoo_product_dict(self, producteca_response, odoo_template, account):
         """Prepare data dictionary for creating/updating product template from Producteca.
@@ -234,6 +386,11 @@ class ProductTemplate(models.Model):
                     raise Exception("El producto de Producteca no tiene nombre asignado. Por favor, verifique en Producteca.")
                 vals['name'] = name
                 vals['type'] = 'consu'
+                
+                if producteca_response.get('variations'):
+                    attribute_lines = self._prepare_template_attribute_lines(producteca_response['variations'])
+                    if attribute_lines:
+                        vals['attribute_line_ids'] = attribute_lines
             if producteca_response.get('product_price', False):            
                 vals['list_price'] = float(producteca_response.get('product_price'))
             if producteca_response.get('brand'):
@@ -257,9 +414,9 @@ class ProductTemplate(models.Model):
     def _update_or_create_variants_from_producteca(self, template, variations, account):
         """Update or create variants from Producteca variations.
         
-        Handles the special case where Odoo automatically creates an empty variant
-        when a template is created. If the product has only 1 variation and the template
-        has a variant without SKU, we update that variant instead of creating a new one.
+        ALWAYS ensures at least one variant has a SKU assigned.
+        For products with attributes, creates variants with specific combinations.
+        For products without attributes, assigns SKU to the default variant.
         
         Args:
             template (product.template): Template to update variants for
@@ -269,37 +426,43 @@ class ProductTemplate(models.Model):
         if not variations:
             return
         
-        empty_variant = template.product_variant_ids.filtered(lambda v: not v.default_code)
+        valid_variations = [v for v in variations if v.get('sku') and v.get('sku') != 'null']
+        if not valid_variations:
+            return
         
-        if len(variations) == 1:
-            if empty_variant and len(empty_variant) == 1 and account.is_producteca_able_to_modified_products:
-                variation = variations[0]
-                _logger.info(f"Found empty variant for template {template.name}, updating with SKU {variation.get('sku')}")
-                self._update_variant_from_variation(empty_variant, variation)
-                return
+        has_single_variation = len(valid_variations) == 1
         
-        if len(variations) > 1 and empty_variant and len(empty_variant) == 1:
-            if account.is_producteca_able_to_modified_products:
-                first_variation = variations[0]
-                _logger.info(f"Multiple variations detected, updating empty variant with first SKU {first_variation.get('sku')}")
-                self._update_variant_from_variation(empty_variant, first_variation)
-                
-                for variation in variations[1:]:
-                    self._find_or_create_variant_by_sku(
-                        template,
-                        variation.get('sku'),
-                        variation,
-                        account
-                    )
-                return
+        if not has_single_variation and not account.is_producteca_able_to_create_products and not account.is_producteca_able_to_modified_products:
+            return
         
-        for variation in variations:
-            self._find_or_create_variant_by_sku(
-                template,
-                variation.get('sku'),
-                variation,
-                account
-            )
+        for variation in valid_variations:
+            sku = variation.get('sku')
+            
+            existing_variant = template.product_variant_ids.filtered(lambda v: v.default_code == sku)
+            if existing_variant:
+                if has_single_variation or account.is_producteca_able_to_modified_products:
+                    existing_variant[0].sudo().write({'default_code': sku})
+                continue
+            
+            ptav_ids = self._get_variant_attribute_values(template, variation)
+            
+            if ptav_ids:
+                variant = template.product_variant_ids.filtered(
+                    lambda v: set(v.product_template_variant_value_ids.ids) == set(ptav_ids)
+                )
+                if variant:
+                    if has_single_variation or account.is_producteca_able_to_modified_products:
+                        variant[0].sudo().write({'default_code': sku})
+                elif account.is_producteca_able_to_create_products:
+                    new_variant = self.env['product.product'].sudo().create({
+                        'product_tmpl_id': template.id,
+                        'product_template_attribute_value_ids': [Command.set(ptav_ids)],
+                        'default_code': sku,
+                    })
+            else:
+                default_variant = template.product_variant_ids[:1]
+                if default_variant and (has_single_variation or account.is_producteca_able_to_modified_products):
+                    default_variant.sudo().write({'default_code': sku})
     
     def _update_variant_from_variation(self, variant, variation_data):
         """Update a single variant with data from Producteca variation.
@@ -308,90 +471,37 @@ class ProductTemplate(models.Model):
             variant (product.product): Variant to update
             variation_data (dict): Producteca variation data
         """
-        update_vals = {}
         if variation_data.get('sku'):
-            update_vals['default_code'] = variation_data['sku']
-        if variation_data.get('barcode'):
-            update_vals['barcode'] = variation_data['barcode']
-        
-        if update_vals:
-            try:
-                variant.sudo().write(update_vals)
-                _logger.info(f"Updated variant with SKU {variation_data.get('sku')}")
-            except Exception as e:
-                _logger.warning(f"Error updating variant with barcode {variation_data.get('barcode')}: {e}")
-                if 'barcode' in update_vals:
-                    update_vals.pop('barcode')
-                    try:
-                        variant.sudo().write(update_vals)
-                        _logger.info(f"Updated variant with SKU {variation_data.get('sku')} without barcode")
-                    except Exception as e2:
-                        _logger.error(f"Error updating variant even without barcode: {e2}")
+            variant.sudo().write({'default_code': variation_data['sku']})
 
     def _find_or_create_variant_by_sku(self, template, sku, variation_data, account):
         """Find existing variant by SKU or create new one.
         
-        Searches for existing product.product with matching SKU in this template. 
-        If found, updates it (ONLY if account.is_producteca_able_to_modified_products). 
-        Otherwise, creates a new variant (ONLY if account.is_producteca_able_to_create_products).
-        
         Args:
             template (product.template): Template to create variant for
             sku (str): SKU to search/assign
-            variation_data (dict): Producteca variation data including barcode
+            variation_data (dict): Producteca variation data
             account (producteca.account): Account configuration for permissions
             
         Returns:
             product.product: Found or created variant, or None if no permissions
         """
         if not sku or sku == 'null':
-            _logger.warning(f"Variation without valid SKU (sku={sku}), cannot create/update variant")
             return None
         
         existing_variant = template.product_variant_ids.filtered(lambda v: v.default_code == sku)
         
         if existing_variant:
-            existing_variant = existing_variant[0]
-            if account.is_producteca_able_to_modified_products:
-                update_vals = {}
-                if variation_data.get('barcode') and not existing_variant.barcode:
-                    update_vals['barcode'] = variation_data['barcode']
-                if update_vals:
-                    try:
-                        existing_variant.sudo().write(update_vals)
-                        _logger.info(f"Updated variant {sku} with barcode")
-                    except Exception as e:
-                        _logger.warning(f"Error updating variant {sku} with barcode: {e}")
-            else:
-                _logger.info(f"Variant {sku} exists but account doesn't have modification permissions")
-            return existing_variant
+            return existing_variant[0]
         
         if not account.is_producteca_able_to_create_products:
-            _logger.warning(f"Cannot create variant {sku}: account doesn't have creation permissions")
             return None
         
-        variant_vals = {
+        new_variant = self.env['product.product'].sudo().create({
             'product_tmpl_id': template.id,
             'default_code': sku,
-        }
-        if variation_data.get('barcode'):
-            variant_vals['barcode'] = variation_data['barcode']
-        
-        try:
-            new_variant = self.env['product.product'].sudo().create(variant_vals)
-            _logger.info(f"Created new variant {sku} for template {template.name}")
-            return new_variant
-        except Exception as e:
-            _logger.warning(f"Error creating variant {sku} with barcode {variant_vals.get('barcode')}: {e}")
-            if 'barcode' in variant_vals:
-                variant_vals.pop('barcode')
-                try:
-                    new_variant = self.env['product.product'].sudo().create(variant_vals)
-                    _logger.info(f"Created new variant {sku} without barcode")
-                    return new_variant
-                except Exception as e2:
-                    _logger.error(f"Error creating variant {sku} even without barcode: {e2}")
-                    raise
+        })
+        return new_variant
 
     def _create_product_from_producteca(self, account, producteca_body):
         """Create new product template and variants from Producteca data.
@@ -421,6 +531,8 @@ class ProductTemplate(models.Model):
         try:
             _logger.info(template_vals)
             template = self.env['product.template'].sudo().create(template_vals)
+            template.flush_recordset()
+            template.invalidate_recordset()
         except Exception as e:
             _logger.error(f"Error creating template: {e}")
             raise
@@ -472,39 +584,44 @@ class ProductTemplate(models.Model):
     def get_product_from_producteca_and_create(self, account, producteca_id):
         """Fetch product from Producteca API and create/update in Odoo.
         
-        Retrieves complete product data from Producteca including variations,
-        then creates or updates the corresponding template and variants in Odoo.
+        Checks if product already exists BEFORE calling API to avoid duplicates.
         
         Args:
             account (producteca.account): Account to use for API calls
             producteca_id (str): Producteca product ID to fetch
         """
-        client = account.get_client()
-        product_service = client.Product
-        product_service.create_if_it_doesnt_exist = account.create_if_dosnt_exist
-        product = product_service.get(producteca_id)
-        
-        product_dict = product.to_dict()
-        
         connection = self.env['producteca.product.connections'].sudo().search([
-            ('producteca_id', '=', str(product.id)), 
+            ('producteca_id', '=', str(producteca_id)), 
             ('producteca_account_id', '=', account.id)
         ], limit=1)
         
         if connection and connection.product_tmpl_id:
+            client = account.get_client()
+            product_service = client.Product
+            product_service.create_if_it_doesnt_exist = account.create_if_dosnt_exist
+            product = product_service.get(producteca_id)
+            product_dict = product.to_dict()
             self._update_product_from_producteca(account, product_dict, connection.product_tmpl_id)
-        else:
-            if product_dict.get('variations') and product_dict['variations']:
-                first_sku = product_dict['variations'][0].get('sku')
-                if first_sku:
+            return
+        
+        client = account.get_client()
+        product_service = client.Product
+        product_service.create_if_it_doesnt_exist = account.create_if_dosnt_exist
+        product = product_service.get(producteca_id)
+        product_dict = product.to_dict()
+        
+        if product_dict.get('variations'):
+            for variation in product_dict['variations']:
+                sku = variation.get('sku')
+                if sku and sku != 'null':
                     existing_variant = self.env['product.product'].sudo().search([
-                        ('default_code', '=', first_sku)
+                        ('default_code', '=', sku)
                     ], limit=1)
                     if existing_variant and existing_variant.product_tmpl_id:
                         self._update_product_from_producteca(account, product_dict, existing_variant.product_tmpl_id)
                         return
-            
-            self._create_product_from_producteca(account, product_dict)
+        
+        self._create_product_from_producteca(account, product_dict)
 
     def _create_product_in_producteca(self, account, producteca_body):
         """Create or update product in Producteca marketplace.
@@ -751,19 +868,21 @@ class ProductTemplate(models.Model):
             processed = 0
             
             while processed < total_products:
+                batch_size = len(products_response.results)
+                
                 for result in products_response.results:
                     product_id = result.id
-                    _logger.info(f"Processing product ID: {product_id}")
                     if not product_id:
                         continue
                     
                     self.with_delay().get_product_from_producteca_and_create(account, product_id)
                 
-                processed += len(products_response.results)
+                processed += batch_size
                 
-                if processed >= total_products or len(products_response.results) == 0:
+                if processed >= total_products or batch_size == 0:
                     break
                 
                 params.skip = processed
+                products_response = client.Product.search(params=params)
                     
         return True
