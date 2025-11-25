@@ -272,93 +272,13 @@ class SaleOrder(models.Model):
             warehouse = account.warehouse_ids.filtered(lambda x: x.producteca_warehouse_name == warehouse_name).id
         return warehouse
 
-    def _handle_missing_product(self, line, account):
-        """Handle missing product in sale order import.
-        
-        Attempts to find or create product from sale order line data.
-        Line structure from Producteca API:
-        {
-            "product": {"id": 123, "name": "...", "code": "...", "brand": "..."},
-            "variation": {"id": 456, "sku": "ABC", "barcode": "...", "stocks": [...]},
-            "price": 100.0,
-            "quantity": 2
-        }
-        
-        Args:
-            line (dict): Sale order line data from Producteca
-            account (producteca.account): Producteca account
-            
-        Returns:
-            product.product: Found or created product variant
-        """
-        product_data = line.get('product', {})
-        variation_data = line.get('variation', {})
-        
-        producteca_id = product_data.get('id')
-        variation_id = variation_data.get('id')
-        sku = line.get('sku') or variation_data.get('sku')
-        
-        producteca_body_queue = {
-            'id': producteca_id,
-            'name': product_data.get('name'),
-            'code': product_data.get('code'),
-            'brand': product_data.get('brand'),
-        }
-        
-        if variation_id and sku:
-            producteca_body_queue['variations'] = [{
-                'id': variation_id,
-                'sku': sku,
-                'barcode': variation_data.get('barcode'),
-            }]
-        
-        if account.is_product_price_modified_by_producteca:
-            unit_price = line.get('price', 0) / line.get('quantity', 1)            
-            temp_product = self.env['product.product'].search([('default_code', '=', sku)], limit=1)
-            if temp_product and temp_product.taxes_id:
-                tax_id = temp_product.taxes_id[0]
-                unit_price = unit_price / (1 + (tax_id.amount/100))
-            
-            producteca_body_queue.update({
-                "product_price": float(unit_price)
-            })
-            _logger.info("producteca product price to sync (after tax calculation): " + str(unit_price))
-        
-        product = None
-        odoo_variant = self.env['product.product'].search([('default_code', '=', sku)], limit=1)
-        if odoo_variant:
-            template = odoo_variant.product_tmpl_id
-            
-            if account.is_producteca_able_to_modified_products:
-                template._update_product_from_producteca(account, producteca_body_queue, template)
-            else:
-                template._update_connection_variants(template, account, producteca_id, producteca_body_queue)
-            
-            product = odoo_variant
-        
-        if not product:
-            if not account.is_producteca_able_to_create_products:
-                raise Exception(
-                    f"No se pudo procesar la orden porque el producto con SKU '{sku}' no existe en Odoo "
-                    f"y la cuenta de Producteca no permite la creación de productos. "
-                    f"Por favor, cree el producto manualmente o habilite la opción 'Producteca puede crear productos'."
-                )
-            
-            template = self.env['product.template']._create_product_from_producteca(account, producteca_body_queue)
-            product = template.product_variant_ids.filtered(lambda v: v.default_code == sku)[:1]
-            if not product and template.product_variant_ids:
-                product = template.product_variant_ids[0]
-        
-        return product
+
 
     def _process_sale_order_lines(self, lines, warehouse, order_lines, account):
         sale_order_lines = []
         for line in lines:
-            product_id = line.get('product', {}).get('id')
             variation_id = line.get('variation', {}).get('id')
-            sku = line.get('sku') or (line.get('variation', {}).get('sku') if line.get('variation') else None)
             
-            # Find variant connection by producteca_variation_id
             connection = self.env['producteca.product.connections'].search([
                 ('producteca_variation_id', '=', str(variation_id)),
                 ('producteca_account_id', '=', account.id)
@@ -366,21 +286,16 @@ class SaleOrder(models.Model):
             
             product = connection.product_id if connection else None
             
-            if not product and sku:
-                product = self.env['product.product'].search([('default_code', '=', sku)], limit=1)
-            
             if not product:
-                product = self._handle_missing_product(line, account)
+                product = self.env['product.template'].get_or_create_product_from_sale_line(line, account)
 
             product_tax = product.taxes_id
             unit_price = line.get('price', 0)
             tax_id = None
             if product_tax:
                 tax_id = product_tax[0]
-                # TODO: If it is percentage, possibly better to use a compute and calculate this different
                 unit_price = line.get('price', 0) / (1 + (tax_id.amount/100))
-            if account.is_product_price_modified_by_producteca:
-                product.lst_price = unit_price / float(line.get('quantity', 1))
+            
             if product.id in order_lines:
                 sale_order_lines.append(Command.update(order_lines[product.id], {
                     'product_uom_qty': line.get('quantity', 0),

@@ -134,13 +134,15 @@ class StockPicking(models.Model):
 
     def _send_decreasestock_to_producteca(self):
         self.ensure_one()
-        if not self.sale_id.producteca_order_id:
-            raise ValueError("No producteca_order_id found in sale order")
+        if not self.sale_id.producteca_id:
+            raise ValueError("No producteca_id found in sale order")
             
         client = self.producteca_account_id.get_client()
         decrease_stock_body = {
-            "id": int(self.sale_id.producteca_order_id),
+            "id": int(self.sale_id.producteca_id),
             "invoiceIntegration": {
+                "app": 232,
+                "integrationId": "151",
                 "decreaseStock": True
             }
         }

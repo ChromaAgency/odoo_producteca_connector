@@ -377,10 +377,14 @@ class ProductTemplate(models.Model):
         
         if account.is_producteca_able_to_modified_products or not odoo_template:
             vals.update({
-                'description': producteca_response.get('notes'),
                 'is_producteca_product': True,
                 'is_already_sync': True,
             })
+            
+            if producteca_response.get('notes'):
+                if not odoo_template or odoo_template.description != producteca_response.get('notes'):
+                    vals['description'] = producteca_response.get('notes')
+            
             if not odoo_template:
                 name = producteca_response.get('name', False)
                 if not name:
@@ -392,23 +396,28 @@ class ProductTemplate(models.Model):
                     attribute_lines = self._prepare_template_attribute_lines(producteca_response['variations'])
                     if attribute_lines:
                         vals['attribute_line_ids'] = attribute_lines
-            if producteca_response.get('product_price', False):            
-                vals['list_price'] = float(producteca_response.get('product_price'))
+            
+            if producteca_response.get('product_price', False):
+                price = float(producteca_response.get('product_price'))
+                if not odoo_template or odoo_template.list_price != price:
+                    vals['list_price'] = price
+            
             if producteca_response.get('brand'):
                 brand = self.env['product.brand'].sudo().search([('name', '=', producteca_response.get('brand'))], limit=1)
-                if brand:
+                if not brand:
+                    brand = self.env['product.brand'].sudo().create({'name': producteca_response.get('brand')})
+                
+                if not odoo_template or odoo_template.product_brand_id != brand:
                     vals['product_brand_id'] = brand.id
-                else:
-                    vals['product_brand_id'] = self.env['product.brand'].sudo().create({'name': producteca_response.get('brand')}).id
             
             if producteca_response.get('tags'):
                 vals['product_tag_ids'] = self._handle_producteca_tags_dict(producteca_response)
 
             dimensions = producteca_response.get('dimensions', {})
-            if dimensions:
-                vals.update({
-                    'weight': dimensions.get('weight'),
-                })
+            if dimensions and dimensions.get('weight'):
+                weight = dimensions.get('weight')
+                if not odoo_template or odoo_template.weight != weight:
+                    vals['weight'] = weight
         
         return vals
 
@@ -621,6 +630,101 @@ class ProductTemplate(models.Model):
                         return
         
         self._create_product_from_producteca(account, product_dict)
+
+    def _update_product_price_from_sale_line(self, product, line, account):
+        if not account.is_product_price_modified_by_producteca:
+            return
+        
+        unit_price = line.get('price', 0) / line.get('quantity', 1)
+        if product.taxes_id:
+            tax_id = product.taxes_id[0]
+            unit_price = unit_price / (1 + (tax_id.amount/100))
+        product.lst_price = unit_price
+
+    def get_or_create_product_from_sale_line(self, line, account):
+        product_data = line.get('product', {})
+        variation_data = line.get('variation', {})
+        
+        producteca_id = product_data.get('id')
+        variation_id = variation_data.get('id')
+        sku = line.get('sku') or variation_data.get('sku')
+        
+        connection = self.env['producteca.product.connections'].sudo().search([
+            ('producteca_variation_id', '=', str(variation_id)),
+            ('producteca_account_id', '=', account.id)
+        ], limit=1)
+        
+        if connection:
+            product = connection.product_id
+            self._update_product_price_from_sale_line(product, line, account)
+            return product
+        
+        template_connection = self.env['producteca.product.connections'].sudo().search([
+            ('producteca_id', '=', str(producteca_id)),
+            ('producteca_account_id', '=', account.id)
+        ], limit=1)
+        
+        if template_connection:
+            variant = template_connection.product_tmpl_id.product_variant_ids.filtered(
+                lambda v: v.default_code == sku
+            )
+            if variant:
+                product = variant
+                self._update_product_price_from_sale_line(product, line, account)
+                return product
+            
+            if not account.is_producteca_able_to_create_products:
+                raise Exception(
+                    f"No se pudo procesar la orden porque el producto con SKU '{sku}' no existe "
+                    f"y la cuenta de Producteca no permite la creación de productos."
+                )
+            
+            self.get_product_from_producteca_and_create(account, producteca_id)
+            
+            variant = template_connection.product_tmpl_id.product_variant_ids.filtered(
+                lambda v: v.default_code == sku
+            )
+            if not variant:
+                raise Exception(
+                    f"No se pudo encontrar la variante con SKU '{sku}' después de sincronizar. "
+                    f"Producteca ID: {producteca_id}, Variation ID: {variation_id}"
+                )
+            
+            product = variant
+            self._update_product_price_from_sale_line(product, line, account)
+            return product
+        
+        variant_by_sku = self.env['product.product'].search([('default_code', '=', sku)], limit=1)
+        
+        if variant_by_sku:
+            self.get_product_from_producteca_and_create(account, producteca_id)
+            
+            product = variant_by_sku
+            self._update_product_price_from_sale_line(product, line, account)
+            return product
+        
+        if not account.is_producteca_able_to_create_products:
+            raise Exception(
+                f"No se pudo procesar la orden porque el producto con SKU '{sku}' no existe en Odoo "
+                f"y la cuenta de Producteca no permite la creación de productos."
+            )
+        
+        self.get_product_from_producteca_and_create(account, producteca_id)
+        
+        connection = self.env['producteca.product.connections'].sudo().search([
+            ('producteca_variation_id', '=', str(variation_id)),
+            ('producteca_account_id', '=', account.id)
+        ], limit=1)
+        
+        if not connection:
+            raise Exception(
+                f"No se pudo encontrar la variante después de crearla. "
+                f"Producteca ID: {producteca_id}, Variation ID: {variation_id}, SKU: {sku}"
+            )
+        
+        product = connection.product_id
+        self._update_product_price_from_sale_line(product, line, account)
+        return product
 
     def _create_product_in_producteca(self, account, producteca_body):
         """Create or update product in Producteca marketplace.

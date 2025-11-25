@@ -27,7 +27,8 @@ class AccountMove(models.Model):
                         "id": int(self.producteca_order_id),
                         "invoiceIntegration": {
                             "documentUrl": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/facturas/{self.id}/{self.access_token}/factura_producteca.pdf",
-                            "integrationId": str(self.name) if self.name else str(self.id),
+                            "app": 232,
+                            "integrationId": "151",
                             "decreaseStock": True
                             }
                         }
