@@ -115,11 +115,15 @@ class ProductecaAccountConfig(models.Model):
     )
     create_if_dosnt_exist = fields.Boolean(
         string='Create If The Product Doesn\'t Exist',
-        help="If enabled, products will be created in Odoo if they don't exist when syncing from Producteca."
+        help="If enabled, products will be created in Producteca if they don't exist when syncing from Odoo."
     )
     is_odoo_able_to_update_producteca_prices = fields.Boolean(
         string='Is Odoo Able to Update Producteca Prices?',
         help="If enabled, Odoo can update product prices in Producteca marketplace."
+    )
+    is_odoo_able_to_update_producteca_stock = fields.Boolean(
+        string='Is Odoo Able to Update Producteca Stock?',
+        help="If enabled, Odoo can update product stock quantities in Producteca marketplace."
     )
 
 

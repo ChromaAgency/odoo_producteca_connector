@@ -20,6 +20,9 @@ class StockQuant(models.Model):
             
         account = connection.producteca_account_id
         
+        if not account.is_odoo_able_to_update_producteca_stock:
+            return
+        
         all_warehouses = account.warehouse_ids | account.default_warehouse_id
         if self.location_id.warehouse_id not in all_warehouses:
             return

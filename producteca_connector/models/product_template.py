@@ -391,6 +391,7 @@ class ProductTemplate(models.Model):
                     raise Exception("El producto de Producteca no tiene nombre asignado. Por favor, verifique en Producteca.")
                 vals['name'] = name
                 vals['type'] = 'consu'
+                vals['is_storable'] = True
                 
                 if producteca_response.get('variations'):
                     attribute_lines = self._prepare_template_attribute_lines(producteca_response['variations'])
@@ -398,9 +399,10 @@ class ProductTemplate(models.Model):
                         vals['attribute_line_ids'] = attribute_lines
             
             if producteca_response.get('product_price', False):
-                price = float(producteca_response.get('product_price'))
-                if not odoo_template or odoo_template.list_price != price:
-                    vals['list_price'] = price
+                if account.is_product_price_modified_by_producteca:
+                    price = float(producteca_response.get('product_price'))
+                    if not odoo_template or odoo_template.list_price != price:
+                        vals['list_price'] = price
             
             if producteca_response.get('brand'):
                 brand = self.env['product.brand'].sudo().search([('name', '=', producteca_response.get('brand'))], limit=1)

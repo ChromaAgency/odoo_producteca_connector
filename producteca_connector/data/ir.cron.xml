@@ -19,15 +19,14 @@
             <field name="interval_type">hours</field>
             <field name="active" eval="True"/>
         </record>
-<!-- 
         <record id="ir_cron_create_product_in_producteca_queue" model="ir.cron">
-            <field name="name">Create Product in Producteca Queue</field>
+            <field name="name">Producteca: Crear Productos Pendientes en Producteca</field>
             <field name="model_id" ref="product.model_product_template"/>
             <field name="state">code</field>
             <field name="code">model.create_product_in_producteca_queue()</field>
             <field name="user_id" ref="base.user_root"/>
             <field name="interval_number">1</field>
             <field name="interval_type">hours</field>
-            <field name="active" eval="False"/>
-        </record> -->
+            <field name="active" eval="True"/>
+        </record>
 </odoo>
