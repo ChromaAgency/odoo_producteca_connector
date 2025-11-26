@@ -35,6 +35,7 @@ class AccountPayment(models.Model):
                         'amount': payment.amount,
                         'method': payment.journal_id.producteca_payment_method,
                         'status': 'Approved',
+                        'hasCancelableStatus': False,
                         'producteca_sale_order_id': invoice.producteca_order_id,
                     }
                     payment._upsert_payment_in_producteca(invoice.producteca_account_id, producteca_payment_data)
@@ -58,6 +59,7 @@ class AccountPayment(models.Model):
                     'amount': payment.amount,
                     'method': payment.journal_id.producteca_payment_method,
                     'status': 'Approved',
+                    'hasCancelableStatus': False,
                     'producteca_sale_order_id': invoice.producteca_order_id,
                 }
                 payment._upsert_payment_in_producteca(invoice.producteca_account_id, producteca_payment_data)
