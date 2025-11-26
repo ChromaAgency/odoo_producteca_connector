@@ -70,11 +70,6 @@ class SaleOrder(models.Model):
         string='Producteca Account',
         help="Producteca account configuration used for this order's integration."
     )
-    has_existing_producteca_invoice = fields.Boolean(
-        string="Invoice already exists",
-        help="Indicates if an invoice already exists for this order in Producteca marketplace."
-    )
-
     def action_confirm(self):
         _ = super().action_confirm()
         for rec in self:
@@ -160,7 +155,6 @@ class SaleOrder(models.Model):
                 for invoice in order.invoice_ids:
                     invoice.producteca_order_id = order.producteca_id
                     invoice.producteca_account_id = order.producteca_account_id
-                    invoice.producteca_invoice_already_exists = order.has_existing_producteca_invoice
                     if order.producteca_payments_data:
                         invoice.producteca_payment_data = order.producteca_payments_data
                         order.producteca_payments_data = False
@@ -382,8 +376,7 @@ class SaleOrder(models.Model):
             'producteca_shipment_data': body.get('shipments'),
             'producteca_account_id': account.id,
             'cart_id': self._get_cart_id(body),
-            'producteca_payments_data': body.get('payments') if body.get('payments') else False,
-            'has_existing_producteca_invoice': True if body.get('invoiceIntegration') else False
+            'producteca_payments_data': body.get('payments') if body.get('payments') else False
         }
         return sale_order_dict
 

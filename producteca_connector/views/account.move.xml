@@ -7,6 +7,10 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='journal_id']" position="after">
                 <field name="producteca_payment_state" readonly="1"/>
+                <group>
+                <field name="producteca_account_id" groups="base.group_no_one"/>
+                <field name="producteca_order_id" groups="base.group_no_one"/>
+                </group>
             </xpath>
         </field>
     </record>

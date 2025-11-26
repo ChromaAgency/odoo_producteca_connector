@@ -395,12 +395,6 @@ msgstr "Importaciones"
 msgid "Imported Sale Action"
 msgstr "Acción al importar venta"
 
-#. module: producteca_connector
-#: model:ir.model.fields,help:producteca_connector.field_sale_order__has_existing_producteca_invoice
-msgid ""
-"Indicates if an invoice already exists for this order in Producteca "
-"marketplace."
-msgstr "Indica si ya existe una factura para esta orden en el marketplace de Producteca."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__active
@@ -441,11 +435,6 @@ msgstr "Información de los pagos"
 #: model:ir.model.fields,field_description:producteca_connector.field_sale_order__producteca_shipment_data
 msgid "Información del envío"
 msgstr "Información del envío"
-
-#. module: producteca_connector
-#: model:ir.model.fields,field_description:producteca_connector.field_sale_order__has_existing_producteca_invoice
-msgid "Invoice already exists"
-msgstr "La factura ya existe"
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_product_product__is_already_sync

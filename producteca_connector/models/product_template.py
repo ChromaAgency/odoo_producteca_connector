@@ -736,7 +736,7 @@ class ProductTemplate(models.Model):
         
         Args:
             account (producteca.account): Account for API calls
-            producteca_body (dict): Product data to send
+            producteca_body (dict): Product data to send (already prepared, single variation or simple product)
             
         Returns:
             bool: True if successful
@@ -914,18 +914,50 @@ class ProductTemplate(models.Model):
         
         if variations:
             product_data["variations"] = variations
+        else:
+            # Solo si NO hay variations, enviar SKU en el root del producto
+            if template.default_code:
+                product_data["sku"] = template.default_code
         
-        if deals:
-            product_data["deals"] = deals
+        # if deals:
+        #     product_data["deals"] = deals
         if pricelists:
             product_data["prices"] = pricelists
             
         return {k: v for k, v in product_data.items() if v is not None}
 
+    def _prepare_variation_payload(self, variation, product_dict):
+        """Prepare the payload for a single product variation.
+        
+        Args:
+            variation: Dictionary with variation data from product_dict['variations']
+            product_dict: Base product data dictionary
+            
+        Returns:
+            Dictionary ready to send to Producteca API
+        """
+        variation_payload = {
+            'sku': variation.get('sku'),
+            'code': product_dict.get('code'),
+            'barcode': variation.get('barcode'),
+            'name': product_dict.get('name'),
+            'category': product_dict.get('category'),
+            'brand': product_dict.get('brand'),
+            'notes': product_dict.get('notes'),
+            'variationAttributes': variation.get('attributes', []),
+            'stocks': variation.get('stocks', []),
+            'prices': product_dict.get('prices', []),
+            'pictures': product_dict.get('pictures', []),
+            'dimensions': product_dict.get('dimensions'),
+            'tags': product_dict.get('tags'),
+        }
+        return {k: v for k, v in variation_payload.items() if v is not None and v != []}
+
     def create_product_in_producteca_queue(self):
         """Queue product template synchronization to Producteca.
         
         Creates background jobs to sync all unsynchronized templates to Producteca.
+        For products with variations, queues each variation separately.
         """
         producteca_account_ids = self.env['producteca.account'].sudo().search([
             ('active', '=', True), 
@@ -945,10 +977,17 @@ class ProductTemplate(models.Model):
             for account in producteca_account_ids:
                 if not account.create_if_dosnt_exist:
                     continue
+                    
                 product_dict = self._prepare_producteca_product_dict(template, account)
-                self.with_delay()._create_product_in_producteca(account, product_dict)
-        
-        templates.write({'is_already_sync': True})
+                
+                if product_dict.get('variations'):
+                    for variation in product_dict['variations']:
+                        variation_payload = self._prepare_variation_payload(variation, product_dict)
+                        self.with_delay()._create_product_in_producteca(account, variation_payload)
+                else:
+                    self.with_delay()._create_product_in_producteca(account, product_dict)
+                
+                template.write({'is_already_sync': True})
         return True
 
     def sync_all_products_from_producteca(self):
