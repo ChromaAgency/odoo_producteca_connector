@@ -1,11 +1,40 @@
 from odoo import models, fields, api
 PRODUCTECA_FIELDS = ['date', 'amount', 'journal', 'state']
 
+ODOO_TO_PRODUCTECA_STATE = {
+    'in_process': 'InProcess',
+    'paid': 'Approved',
+    'canceled': 'Cancelled',
+    'rejected': 'Rejected',
+}
+
 class AccountPayment(models.Model):
     _inherit = 'account.payment'
 
     producteca_payment_id = fields.Char(string='Producteca Payment ID')
     producteca_account_id = fields.Many2one('producteca.account', string='Producteca Account')
+
+    def _get_producteca_status(self):
+        """Mapea el estado de Odoo al estado de Producteca."""
+        self.ensure_one()
+        return ODOO_TO_PRODUCTECA_STATE.get(self.state)
+
+    def _prepare_producteca_payment_data(self, invoice):
+        """Prepara los datos del pago para enviar a Producteca."""
+        self.ensure_one()
+        
+        data = {
+            'date': self.date.isoformat() if self.date else fields.Date.today().isoformat(),
+            'amount': self.amount,
+            'method': self.journal_id.producteca_payment_method,
+            'producteca_sale_order_id': invoice.producteca_order_id,
+        }
+        
+        producteca_status = self._get_producteca_status()
+        data['status'] = producteca_status
+        data['hasCancelableStatus'] = False if producteca_status == 'Approved' else True
+        
+        return data
 
     def _upsert_payment_in_producteca(self, account, producteca_body):
         client = account.get_client()
@@ -13,6 +42,16 @@ class AccountPayment(models.Model):
         producteca_sale_order = client.SalesOrder(id=sale_order_id)
         
         if self.producteca_payment_id:
+            sale_order_data = producteca_sale_order.get(sale_order_id)
+            existing_payment = next(
+                (p for p in sale_order_data._record.payments if str(p.id) == str(self.producteca_payment_id)),
+                None
+            )
+            
+            if existing_payment and existing_payment.status == 'Approved':
+                producteca_body.pop('status', None)
+                producteca_body.pop('hasCancelableStatus', None)
+            
             result = producteca_sale_order.update_payment(self.producteca_payment_id, producteca_body)
         else:
             result = producteca_sale_order.add_payment(producteca_body)
@@ -30,14 +69,7 @@ class AccountPayment(models.Model):
                     if not payment.journal_id.producteca_payment_method:
                         continue
                     
-                    producteca_payment_data = {
-                        'date': payment.date.isoformat() if payment.date else fields.Date.today().isoformat(),
-                        'amount': payment.amount,
-                        'method': payment.journal_id.producteca_payment_method,
-                        'status': 'Approved',
-                        'hasCancelableStatus': False,
-                        'producteca_sale_order_id': invoice.producteca_order_id,
-                    }
+                    producteca_payment_data = payment._prepare_producteca_payment_data(invoice)
                     payment._upsert_payment_in_producteca(invoice.producteca_account_id, producteca_payment_data)
         return created_payments
 
@@ -54,14 +86,7 @@ class AccountPayment(models.Model):
                 if not payment.journal_id.producteca_payment_method:
                     continue
                 
-                producteca_payment_data = {
-                    'date': payment.date.isoformat() if payment.date else fields.Date.today().isoformat(),
-                    'amount': payment.amount,
-                    'method': payment.journal_id.producteca_payment_method,
-                    'status': 'Approved',
-                    'hasCancelableStatus': False,
-                    'producteca_sale_order_id': invoice.producteca_order_id,
-                }
+                producteca_payment_data = payment._prepare_producteca_payment_data(invoice)
                 payment._upsert_payment_in_producteca(invoice.producteca_account_id, producteca_payment_data)
        
         return result

@@ -915,7 +915,6 @@ class ProductTemplate(models.Model):
         if variations:
             product_data["variations"] = variations
         else:
-            # Solo si NO hay variations, enviar SKU en el root del producto
             if template.default_code:
                 product_data["sku"] = template.default_code
         
