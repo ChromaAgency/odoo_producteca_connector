@@ -125,6 +125,15 @@ class ProductecaAccountConfig(models.Model):
         string='Is Odoo Able to Update Producteca Stock?',
         help="If enabled, Odoo can update product stock quantities in Producteca marketplace."
     )
+    stock_quantity_field = fields.Selection([
+        ('quantity', 'Quantity (Total Stock)'),
+        ('available_quantity', 'Available Quantity (Available Stock)'),
+    ],
+        string='Stock Quantity Field',
+        default='quantity',
+        required=True,
+        help="Select which stock field to send to Producteca: 'Quantity' sends total stock, 'Available Quantity' sends available stock (total - reserved)."
+    )
 
     is_odoo_able_to_update_producteca_shipments = fields.Boolean(
         string='Is Odoo Able to Update Producteca Shipments?',

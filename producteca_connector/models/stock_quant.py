@@ -28,9 +28,20 @@ class StockQuant(models.Model):
             return
         
         warehouse_name = self.location_id.warehouse_id._get_producteca_warehouse_name(account)
+        if not warehouse_name:
+            _logger.warning(f"Cannot update stock for product {self.product_id.default_code}: warehouse {self.location_id.warehouse_id.name} has no Producteca warehouse name configured")
+            return
         
-        producteca_body = {"sku": self.product_id.default_code, "stocks": [{"quantity": self.quantity,
-                           "available_quantity": self.available_quantity, "warehouse": warehouse_name}]}
+        stock_data = {"warehouse": warehouse_name}
+        if account.stock_quantity_field == 'available_quantity':
+            stock_data["quantity"] = self.available_quantity
+        else:
+            stock_data["quantity"] = self.quantity
+        
+        producteca_body = {
+            "sku": self.product_id.default_code,
+            "stocks": [stock_data]
+        }
         if connection.producteca_id:
             producteca_body.update({
                 "id": connection.producteca_id

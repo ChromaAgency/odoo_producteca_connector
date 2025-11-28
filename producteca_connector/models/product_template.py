@@ -901,13 +901,16 @@ class ProductTemplate(models.Model):
             
             variant_stocks = [s for s in stocks_data if s['sku'] == variant.default_code]
             if variant_stocks and variant_stocks[0]['stocks']:
-                variation_dict["stocks"] = [
-                    {
-                        "quantity": stock.quantity,
-                        "availableQuantity": stock.available_quantity,
-                        "warehouse": stock.warehouse_id._get_producteca_warehouse_name(account) if stock.warehouse_id else None
-                    } for stock in variant_stocks[0]['stocks']
-                ]
+                variation_dict["stocks"] = []
+                for stock in variant_stocks[0]['stocks']:
+                    warehouse_name = stock.warehouse_id._get_producteca_warehouse_name(account) if stock.warehouse_id else None
+                    stock_dict = {"warehouse": warehouse_name}
+                    if account.stock_quantity_field == 'available_quantity':
+                        stock_dict["quantity"] = stock.available_quantity
+                    else:
+                        stock_dict["quantity"] = stock.quantity
+                    variation_dict["stocks"].append(stock_dict)
+            
             if variation_dict.get("stocks") and variation_dict["stocks"][-1].get('warehouse') is None:
                 continue
             
