@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 18.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-26 13:12+0000\n"
-"PO-Revision-Date: 2025-11-26 13:12+0000\n"
+"POT-Creation-Date: 2025-11-28 19:57+0000\n"
+"PO-Revision-Date: 2025-11-28 19:57+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -18,22 +18,25 @@ msgstr ""
 #. module: producteca_connector
 #: model:ir.model.constraint,message:producteca_connector.constraint_producteca_product_connections_unique_variant_per_account
 msgid "A product variant can only have one connection per Producteca account"
-msgstr "Una variante de producto solo puede tener una conexión por cuenta de Producteca"
+msgstr ""
+"Una variante de producto solo puede tener una conexión por cuenta de "
+"Producteca"
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__api_key
 msgid "API Key"
-msgstr "API Key"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__api_key
 msgid "API key provided by Producteca for authentication. Keep this secure."
-msgstr "API key provista por Producteca para autenticación. Mantené esto seguro."
+msgstr ""
+"API key provista por Producteca para autenticación. Mantené esto seguro."
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__atm
 msgid "ATM"
-msgstr "ATM"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__account_name
@@ -49,7 +52,7 @@ msgstr "Activo"
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_products_wizard__update_if_exists
 msgid "Actualizar el producto si existe"
-msgstr "Actualizar el producto si existe"
+msgstr ""
 
 #. module: producteca_connector
 #. odoo-python
@@ -57,7 +60,10 @@ msgstr "Actualizar el producto si existe"
 msgid ""
 "Additional pricelist '%s' must have a Producteca Pricelist Name configured. "
 "Please set the Producteca Pricelist Name for this pricelist."
-msgstr "La lista de precios adicional '%s' debe tener un Nombre de lista de Producteca configurado. Por favor, configurá el nombre de la lista de Producteca para esta lista."
+msgstr ""
+"La lista de precios adicional '%s' debe tener un Nombre de lista de "
+"Producteca configurado. Por favor, configurá el nombre de la lista de "
+"Producteca para esta lista."
 
 #. module: producteca_connector
 #. odoo-python
@@ -65,7 +71,10 @@ msgstr "La lista de precios adicional '%s' debe tener un Nombre de lista de Prod
 msgid ""
 "Additional warehouse '%s' must have a Producteca Warehouse Name configured. "
 "Please set the Producteca Warehouse Name for this warehouse."
-msgstr "El almacén adicional '%s' debe tener un Nombre de Almacén de Producteca configurado. Por favor, configurá el nombre de almacén de Producteca para este almacén."
+msgstr ""
+"El almacén adicional '%s' debe tener un Nombre de Almacén de Producteca "
+"configurado. Por favor, configurá el nombre de almacén de Producteca para "
+"este almacén."
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_move__producteca_payment_state__approved
@@ -75,18 +84,19 @@ msgstr "Aprobado"
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__bearer_token
 msgid "Bearer Token"
-msgstr "Bearer Token"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__bearer_token
 msgid "Bearer token for Producteca API authentication. Keep this secure."
-msgstr "Bearer token para autenticación de API de Producteca. Mantené esto seguro."
+msgstr ""
+"Bearer token para autenticación de API de Producteca. Mantené esto seguro."
 
 #. module: producteca_connector
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_producteca_products_wizard_form
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_producteca_saleorders_wizard_form
 msgid "Cancelar"
-msgstr "Cancelar"
+msgstr ""
 
 #. module: producteca_connector
 #. odoo-python
@@ -94,7 +104,9 @@ msgstr "Cancelar"
 msgid ""
 "Cannot use 'Default' as Producteca Pricelist Name. The default pricelist is "
 "handled automatically by the system."
-msgstr "No se puede usar 'Default' como Nombre de Lista de Producteca. La lista de precios por defecto se maneja automáticamente por el sistema."
+msgstr ""
+"No se puede usar 'Default' como Nombre de Lista de Producteca. La lista de "
+"precios por defecto se maneja automáticamente por el sistema."
 
 #. module: producteca_connector
 #. odoo-python
@@ -102,7 +114,9 @@ msgstr "No se puede usar 'Default' como Nombre de Lista de Producteca. La lista 
 msgid ""
 "Cannot use 'Default' as Producteca Warehouse Name. The default warehouse is "
 "handled automatically by the system."
-msgstr "No se puede usar 'Default' como Nombre de Almacén de Producteca. El almacén por defecto se maneja automáticamente por el sistema."
+msgstr ""
+"No se puede usar 'Default' como Nombre de Almacén de Producteca. El almacén "
+"por defecto se maneja automáticamente por el sistema."
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_sale_order__cart_id
@@ -117,12 +131,12 @@ msgstr "Carritos"
 #. module: producteca_connector
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_order_form_inherit_producteca
 msgid "Cerrar Orden en Producteca"
-msgstr "Cerrar Orden en Producteca"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__check
 msgid "Cheque"
-msgstr "Cheque"
+msgstr ""
 
 #. module: producteca_connector
 #: model:res.groups,name:producteca_connector.producteca_close_sale_order_group
@@ -139,14 +153,18 @@ msgstr "Hacé clic para crear una nueva cuenta de Producteca"
 msgid ""
 "Comma-separated list of Producteca product IDs to import (e.g., "
 "'123,456,789')"
-msgstr "Lista separada por comas de IDs de productos de Producteca para importar (p.ej., '123,456,789')"
+msgstr ""
+"Lista separada por comas de IDs de productos de Producteca para importar "
+"(p.ej., '123,456,789')"
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_saleorders_wizard__search_text
 msgid ""
 "Comma-separated list of Producteca sale order IDs to import (e.g., "
 "'123,456,789')"
-msgstr "Lista separada por comas de IDs de órdenes de venta de Producteca para importar (p.ej., '123,456,789')"
+msgstr ""
+"Lista separada por comas de IDs de órdenes de venta de Producteca para "
+"importar (p.ej., '123,456,789')"
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_res_company
@@ -161,12 +179,12 @@ msgstr "Compañía"
 #. module: producteca_connector
 #: model:ir.ui.menu,name:producteca_connector.menu_producteca_connections
 msgid "Conexiones"
-msgstr "Conexiones"
+msgstr ""
 
 #. module: producteca_connector
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_producteca_account_form
 msgid "Configuración"
-msgstr "Configuración"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_confirm_cancel_sale_order
@@ -188,14 +206,18 @@ msgstr "Confirmar la orden de venta y crear factura borrador"
 msgid ""
 "Connections between this product template and Producteca marketplace "
 "products."
-msgstr "Conexiones entre esta plantilla de producto y los productos del marketplace Producteca."
+msgstr ""
+"Conexiones entre esta plantilla de producto y los productos del marketplace "
+"Producteca."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_product_product__producteca_connection_ids
 msgid ""
 "Connections between this product variant and Producteca marketplace "
 "variations."
-msgstr "Conexiones entre esta variante de producto y las variaciones del marketplace Producteca."
+msgstr ""
+"Conexiones entre esta variante de producto y las variaciones del marketplace"
+" Producteca."
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_res_partner
@@ -236,12 +258,12 @@ msgstr "Creado el"
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_products_wizard__producteca_account_id
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_saleorders_wizard__producteca_account_id
 msgid "Cuenta de Producteca"
-msgstr "Cuenta de Producteca"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.ui.menu,name:producteca_connector.menu_producteca_account
 msgid "Cuentas"
-msgstr "Cuentas"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_account_bank_statement_line__producteca_payment_data
@@ -252,7 +274,7 @@ msgstr "Datos del pago de Producteca"
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__decidir
 msgid "Decidir"
-msgstr "Decidir"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__default_pricelist_id
@@ -267,23 +289,26 @@ msgstr "Almacén predeterminado"
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__default_warehouse_id
 msgid "Default warehouse used for stock operations when not specified."
-msgstr "Almacén predeterminado usado para operaciones de stock cuando no se especifica."
+msgstr ""
+"Almacén predeterminado usado para operaciones de stock cuando no se "
+"especifica."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__imported_sale_action
 msgid ""
 "Defines what action to take when importing sale orders from Producteca."
-msgstr "Define qué acción tomar al importar órdenes de venta desde Producteca."
+msgstr ""
+"Define qué acción tomar al importar órdenes de venta desde Producteca."
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__bankdeposit
 msgid "Depósito Bancario"
-msgstr "Depósito Bancario"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__dineromail
 msgid "DineroMail"
-msgstr "DineroMail"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_confirm_cancel_sale_order__display_name
@@ -298,19 +323,13 @@ msgstr "Nombre para mostrar"
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__cash
 msgid "Efectivo"
-msgstr "Efectivo"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_account_bank_statement_line__producteca_payment_state
 #: model:ir.model.fields,field_description:producteca_connector.field_account_move__producteca_payment_state
 msgid "Estado del pago"
-msgstr "Estado del pago"
-
-#. module: producteca_connector
-#: model:ir.model.fields,field_description:producteca_connector.field_account_bank_statement_line__producteca_invoice_already_exists
-#: model:ir.model.fields,field_description:producteca_connector.field_account_move__producteca_invoice_already_exists
-msgid "Factura de producteca ya existe"
-msgstr "Factura de Producteca ya existe"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__get_orders_from_last_days
@@ -330,7 +349,7 @@ msgstr "Nombre legible para esta configuración de cuenta de Producteca."
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_saleorders_wizard__id
 #: model:ir.model.fields,field_description:producteca_connector.field_sale_order_cart__id
 msgid "ID"
-msgstr "ID"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_account_bank_statement_line__producteca_order_id
@@ -341,14 +360,30 @@ msgstr "ID de la orden de Producteca"
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_odoo_able_to_update_producteca_prices
 msgid "If enabled, Odoo can update product prices in Producteca marketplace."
-msgstr "Si está habilitado, Odoo puede actualizar los precios de productos en el marketplace de Producteca."
+msgstr ""
+"Si está habilitado, Odoo puede actualizar los precios de productos en el "
+"marketplace de Producteca."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_odoo_able_to_update_producteca_stock
 msgid ""
 "If enabled, Odoo can update product stock quantities in Producteca "
 "marketplace."
-msgstr "Si está habilitado, Odoo puede actualizar las cantidades de stock de productos en el marketplace de Producteca."
+msgstr ""
+"Si está habilitado, Odoo puede actualizar las cantidades de stock de "
+"productos en el marketplace de Producteca."
+
+#. module: producteca_connector
+#: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_odoo_able_to_update_producteca_shipments
+msgid ""
+"If enabled, Odoo can update shipment information in Producteca marketplace."
+msgstr "Si está habilitado, Odoo puede actualizar la información general de las entregas de Producteca"
+
+#. module: producteca_connector
+#: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_odoo_able_to_update_shipment_date
+msgid ""
+"If enabled, Odoo can update the shipment date in Producteca marketplace."
+msgstr "Si está habilitado, Odoo puede actualizar la fecha de entrega de Producteca."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_producteca_able_to_create_products
@@ -359,56 +394,68 @@ msgstr "Si está habilitado, Producteca puede crear nuevos productos en Odoo."
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_producteca_able_to_modified_products
 msgid ""
 "If enabled, Producteca can modify existing product information in Odoo."
-msgstr "Si está habilitado, Producteca puede modificar la información existente de productos en Odoo."
+msgstr ""
+"Si está habilitado, Producteca puede modificar la información existente de "
+"productos en Odoo."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_product_price_modified_by_producteca
 msgid "If enabled, Producteca can modify product prices in Odoo."
-msgstr "Si está habilitado, Producteca puede modificar los precios de productos en Odoo."
+msgstr ""
+"Si está habilitado, Producteca puede modificar los precios de productos en "
+"Odoo."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_stock_modified_by_producteca
 msgid "If enabled, Producteca can modify stock levels in Odoo."
-msgstr "Si está habilitado, Producteca puede modificar los niveles de stock en Odoo."
+msgstr ""
+"Si está habilitado, Producteca puede modificar los niveles de stock en Odoo."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_products_wizard__update_if_exists
 msgid ""
 "If enabled, existing products will be updated with latest data from "
 "Producteca. If disabled, existing products will be skipped during import."
-msgstr "Si está habilitado, los productos existentes serán actualizados con los últimos datos de Producteca. Si está deshabilitado, los productos existentes serán omitidos durante la importación."
+msgstr ""
+"Si está habilitado, los productos existentes serán actualizados con los "
+"últimos datos de Producteca. Si está deshabilitado, los productos existentes"
+" serán omitidos durante la importación."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__create_if_dosnt_exist
 msgid ""
 "If enabled, products will be created in Producteca if they don't exist when "
 "syncing from Odoo."
-msgstr "Si está habilitado, los productos serán creados en Producteca si no existen al sincronizar desde Odoo."
+msgstr ""
+"Si está habilitado, los productos serán creados en Producteca si no existen "
+"al sincronizar desde Odoo."
 
 #. module: producteca_connector
 #: model:ir.ui.menu,name:producteca_connector.menu_producteca_imports
 msgid "Importaciones"
-msgstr "Importaciones"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__imported_sale_action
 msgid "Imported Sale Action"
 msgstr "Acción al importar venta"
 
-
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__active
 msgid ""
 "Indicates if this Producteca account configuration is active and available "
 "for synchronization."
-msgstr "Indica si esta configuración de cuenta de Producteca está activa y disponible para sincronización."
+msgstr ""
+"Indica si esta configuración de cuenta de Producteca está activa y "
+"disponible para sincronización."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_product_connections__active
 msgid ""
 "Indicates if this connection is active and should be used for "
 "synchronization."
-msgstr "Indica si esta conexión está activa y debe usarse para sincronización."
+msgstr ""
+"Indica si esta conexión está activa y debe usarse para sincronización."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_product_product__is_already_sync
@@ -416,7 +463,9 @@ msgstr "Indica si esta conexión está activa y debe usarse para sincronización
 msgid ""
 "Indicates if this product template has been synchronized to Producteca at "
 "least once."
-msgstr "Indica si esta plantilla de producto ha sido sincronizada con Producteca al menos una vez."
+msgstr ""
+"Indica si esta plantilla de producto ha sido sincronizada con Producteca al "
+"menos una vez."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_product_product__is_producteca_product
@@ -424,17 +473,19 @@ msgstr "Indica si esta plantilla de producto ha sido sincronizada con Producteca
 msgid ""
 "Indicates if this product template is synchronized with Producteca "
 "marketplace."
-msgstr "Indica si esta plantilla de producto está sincronizada con el marketplace Producteca."
+msgstr ""
+"Indica si esta plantilla de producto está sincronizada con el marketplace "
+"Producteca."
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_sale_order__producteca_payments_data
 msgid "Información de los pagos"
-msgstr "Información de los pagos"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_sale_order__producteca_shipment_data
 msgid "Información del envío"
-msgstr "Información del envío"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_product_product__is_already_sync
@@ -448,9 +499,19 @@ msgid "Is Odoo Able to Update Producteca Prices?"
 msgstr "¿Puede Odoo actualizar precios en Producteca?"
 
 #. module: producteca_connector
+#: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__is_odoo_able_to_update_producteca_shipments
+msgid "Is Odoo Able to Update Producteca Shipments?"
+msgstr ""
+
+#. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__is_odoo_able_to_update_producteca_stock
 msgid "Is Odoo Able to Update Producteca Stock?"
 msgstr "¿Puede Odoo actualizar stock en Producteca?"
+
+#. module: producteca_connector
+#: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__is_odoo_able_to_update_shipment_date
+msgid "Is Odoo Able to Update Shipment Date?"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__is_product_price_modified_by_producteca
@@ -481,12 +542,14 @@ msgstr "¿El stock es modificado por Producteca?"
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_sale_order__producteca_payments_data
 msgid "JSON data containing payment information from Producteca marketplace."
-msgstr "Datos JSON que contienen información de pago del marketplace Producteca."
+msgstr ""
+"Datos JSON que contienen información de pago del marketplace Producteca."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_sale_order__producteca_shipment_data
 msgid "JSON data containing shipment information from Producteca marketplace."
-msgstr "Datos JSON que contienen información de envío del marketplace Producteca."
+msgstr ""
+"Datos JSON que contienen información de envío del marketplace Producteca."
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_account_journal
@@ -521,17 +584,19 @@ msgstr "Última modificación el"
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__mercadopago
 msgid "Mercado Pago"
-msgstr "Mercado Pago"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_account_journal__producteca_payment_method
 msgid "Método de diario de pago"
-msgstr "Método de diario de pago"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__get_orders_from_last_days
 msgid "Number of days to look back when importing orders from Producteca."
-msgstr "Número de días hacia atrás a considerar al importar órdenes desde Producteca."
+msgstr ""
+"Número de días hacia atrás a considerar al importar órdenes desde "
+"Producteca."
 
 #. module: producteca_connector
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_producteca_saleorders_wizard_form
@@ -548,14 +613,14 @@ msgstr "Obtener Órdenes de Venta de Producteca"
 #. module: producteca_connector
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_producteca_products_wizard_form
 msgid "Obtener Productos"
-msgstr "Obtener Productos"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.actions.act_window,name:producteca_connector.action_producteca_products_wizard
 #: model:ir.ui.menu,name:producteca_connector.menu_obtain_producteca_products
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_producteca_products_wizard_form
 msgid "Obtener Productos de Producteca"
-msgstr "Obtener Productos de Producteca"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__company_id
@@ -565,7 +630,9 @@ msgstr "Compañía de Odoo asociada a esta cuenta de Producteca."
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_product_connections__product_id
 msgid "Odoo product variant linked to this Producteca marketplace variation."
-msgstr "Variante de producto de Odoo vinculada a esta variación del marketplace Producteca."
+msgstr ""
+"Variante de producto de Odoo vinculada a esta variación del marketplace "
+"Producteca."
 
 #. module: producteca_connector
 #: model:ir.model.constraint,message:producteca_connector.constraint_producteca_account_check_price_sync_exclusivity
@@ -573,12 +640,15 @@ msgid ""
 "Only one price synchronization option can be active at a time. Either "
 "Producteca modifies product prices OR Odoo updates Producteca prices, but "
 "not both."
-msgstr "Solo una opción de sincronización de precios puede estar activa a la vez. O Producteca modifica los precios de productos, o Odoo actualiza los precios en Producteca, pero no ambos."
+msgstr ""
+"Solo una opción de sincronización de precios puede estar activa a la vez. O "
+"Producteca modifica los precios de productos, o Odoo actualiza los precios "
+"en Producteca, pero no ambos."
 
 #. module: producteca_connector
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_producteca_account_form
 msgid "Opciones"
-msgstr "Opciones"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_sale_order_cart__order_ids
@@ -597,17 +667,19 @@ msgstr "Plataforma de origen"
 msgid ""
 "Original platform/channel where this order was placed (e.g., MercadoLibre, "
 "Amazon, etc.)."
-msgstr "Plataforma/canal original donde se realizó esta orden (p.ej., MercadoLibre, Amazon, etc.)."
+msgstr ""
+"Plataforma/canal original donde se realizó esta orden (p.ej., MercadoLibre, "
+"Amazon, etc.)."
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__paypal
 msgid "PayPal"
-msgstr "PayPal"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__paypalplus
 msgid "PayPal Plus"
-msgstr "PayPal Plus"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_account_payment
@@ -664,7 +736,7 @@ msgstr "Plantilla de producto de la variante (campo calculado)."
 #. module: producteca_connector
 #: model:ir.ui.menu,name:producteca_connector.menu_producteca_root
 msgid "Producteca"
-msgstr "Producteca"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_account_bank_statement_line__producteca_account_id
@@ -754,45 +826,49 @@ msgstr "Nombre de almacén de Producteca"
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_sale_order__producteca_account_id
 msgid "Producteca account configuration used for this order's integration."
-msgstr "Configuración de cuenta de Producteca usada para la integración de esta orden."
+msgstr ""
+"Configuración de cuenta de Producteca usada para la integración de esta "
+"orden."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_product_connections__producteca_account_id
 msgid ""
 "Producteca account this connection belongs to. Defines authentication and "
 "sync settings."
-msgstr "Cuenta de Producteca a la que pertenece esta conexión. Define la autenticación y configuración de sincronización."
+msgstr ""
+"Cuenta de Producteca a la que pertenece esta conexión. Define la "
+"autenticación y configuración de sincronización."
 
 #. module: producteca_connector
 #: model:ir.actions.server,name:producteca_connector.ir_cron_create_product_in_producteca_queue_ir_actions_server
 msgid "Producteca: Crear Productos Pendientes en Producteca"
-msgstr "Producteca: Crear Productos Pendientes en Producteca"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.actions.server,name:producteca_connector.ir_cron_enqueue_last_x_days_orders_from_producteca_ir_actions_server
 msgid "Producteca: Encolar Órdenes de los Últimos X Días"
-msgstr "Producteca: Encolar Órdenes de los Últimos X Días"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.ui.menu,name:producteca_connector.menu_producteca_products
 #: model:ir.ui.menu,name:producteca_connector.menu_producteca_products_template
 msgid "Productos"
-msgstr "Productos"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__bankloan
 msgid "Préstamo Bancario"
-msgstr "Préstamo Bancario"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__loyaltypoints
 msgid "Puntos de Fidelidad"
-msgstr "Puntos de Fidelidad"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_stock_quant
 msgid "Quants"
-msgstr "Cantidades"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_confirm_cancel_sale_order__sale_order_id
@@ -824,7 +900,7 @@ msgstr "Carrito de compras asociado a esta orden en Producteca."
 #. module: producteca_connector
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_producteca_account_form
 msgid "Sincronizar Productos"
-msgstr "Sincronizar Productos"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.actions.server,name:producteca_connector.ir_cron_sync_prices_to_producteca_ir_actions_server
@@ -834,32 +910,36 @@ msgstr "Sincronizar precios a Producteca"
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__creditcard
 msgid "Tarjeta de Crédito"
-msgstr "Tarjeta de Crédito"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__debitcard
 msgid "Tarjeta de Débito"
-msgstr "Tarjeta de Débito"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_products_wizard__search_text
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_saleorders_wizard__search_text
 msgid "Texto de búsqueda"
-msgstr "Texto de búsqueda"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_products_wizard__producteca_account_id
 msgid ""
 "The Producteca account to use for importing products. Must have product "
 "creation permissions."
-msgstr "La cuenta de Producteca a usar para importar productos. Debe tener permisos de creación de productos."
+msgstr ""
+"La cuenta de Producteca a usar para importar productos. Debe tener permisos "
+"de creación de productos."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_saleorders_wizard__producteca_account_id
 msgid ""
 "The Producteca account to use for importing sale orders. Must have valid API"
 " credentials."
-msgstr "La cuenta de Producteca a usar para importar órdenes de venta. Debe tener credenciales de API válidas."
+msgstr ""
+"La cuenta de Producteca a usar para importar órdenes de venta. Debe tener "
+"credenciales de API válidas."
 
 #. module: producteca_connector
 #. odoo-python
@@ -868,7 +948,10 @@ msgid ""
 "The default pricelist '%s' cannot be included in the additional pricelists. "
 "Please remove it from the additional pricelists or select a different "
 "default pricelist."
-msgstr "La lista de precios predeterminada '%s' no puede estar incluida en las listas de precios adicionales. Por favor, sacála de las listas adicionales o seleccioná una lista predeterminada diferente."
+msgstr ""
+"La lista de precios predeterminada '%s' no puede estar incluida en las "
+"listas de precios adicionales. Por favor, sacála de las listas adicionales o"
+" seleccioná una lista predeterminada diferente."
 
 #. module: producteca_connector
 #. odoo-python
@@ -877,17 +960,21 @@ msgid ""
 "The default warehouse '%s' cannot be included in the additional warehouses. "
 "Please remove it from the additional warehouses or select a different "
 "default warehouse."
-msgstr "El almacén predeterminado '%s' no puede estar incluido en los almacenes adicionales. Por favor, sacalo de los almacenes adicionales o seleccioná un almacén predeterminado diferente."
+msgstr ""
+"El almacén predeterminado '%s' no puede estar incluido en los almacenes "
+"adicionales. Por favor, sacalo de los almacenes adicionales o seleccioná un "
+"almacén predeterminado diferente."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_confirm_cancel_sale_order__sale_order_id
 msgid "The sale order to be cancelled in both Odoo and Producteca marketplace"
-msgstr "La orden de venta a cancelar tanto en Odoo como en el marketplace Producteca"
+msgstr ""
+"La orden de venta a cancelar tanto en Odoo como en el marketplace Producteca"
 
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__ticket
 msgid "Ticket"
-msgstr "Ticket"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_stock_picking
@@ -897,20 +984,23 @@ msgstr "Transferir "
 #. module: producteca_connector
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__banktransfer
 msgid "Transferencia Bancaria"
-msgstr "Transferencia Bancaria"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_product_connections__producteca_id
 msgid ""
 "Unique identifier for the product in Producteca marketplace (shared across "
 "variations)."
-msgstr "Identificador único del producto en el marketplace Producteca (compartido entre variaciones)."
+msgstr ""
+"Identificador único del producto en el marketplace Producteca (compartido "
+"entre variaciones)."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_product_connections__producteca_variation_id
 msgid ""
 "Unique identifier for the specific variation in Producteca marketplace."
-msgstr "Identificador único de la variación específica en el marketplace Producteca."
+msgstr ""
+"Identificador único de la variación específica en el marketplace Producteca."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__producteca_company_id
@@ -925,7 +1015,7 @@ msgstr "Identificador único de esta orden en el marketplace Producteca."
 #. module: producteca_connector
 #: model:ir.ui.menu,name:producteca_connector.menu_producteca_products_variants
 msgid "Variantes de Productos"
-msgstr "Variantes de Productos"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_stock_warehouse
@@ -943,25 +1033,27 @@ msgid "Warehouses that will be synchronized with this Producteca account."
 msgstr "Almacenes que se sincronizarán con esta cuenta de Producteca."
 
 #. module: producteca_connector
-#: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__price_warning_message
+#: model:ir.model.fields,field_description:producteca_connector.field_confirm_cancel_sale_order__warning_message
 msgid "Warning Message"
-msgstr "Mensaje de advertencia"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_confirm_cancel_sale_order__warning_message
 msgid ""
 "Warning message about potential reputation impact from order cancellation"
-msgstr "Mensaje de advertencia sobre el potencial impacto en la reputación por cancelar la orden"
+msgstr ""
+"Mensaje de advertencia sobre el potencial impacto en la reputación por "
+"cancelar la orden"
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_producteca_saleorders_wizard
 msgid "Wizard para obtener ordenes de venta de Producteca"
-msgstr "Wizard para obtener ordenes de venta de Producteca"
+msgstr ""
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_producteca_products_wizard
 msgid "Wizard para obtener productos de Producteca"
-msgstr "Wizard para obtener productos de Producteca"
+msgstr ""
 
 #. module: producteca_connector
 #. odoo-python
@@ -971,11 +1063,18 @@ msgid ""
 " Pricelist is configured. The product list price will be sent as the default"
 " price to Producteca. Consider setting a Default Pricelist for better price "
 "control."
-msgstr "Habés habilitado \"Odoo puede actualizar precios de Producteca\" pero no hay una lista de precios predeterminada configurada. El precio de lista del producto se enviará como precio predeterminado a Producteca. Considerá configurar una lista de precios predeterminada para un mejor control de precios."
+msgstr ""
+"Habés habilitado \"Odoo puede actualizar precios de Producteca\" pero no hay"
+" una lista de precios predeterminada configurada. El precio de lista del "
+"producto se enviará como precio predeterminado a Producteca. Considerá "
+"configurar una lista de precios predeterminada para un mejor control de "
+"precios."
 
 #. module: producteca_connector
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_producteca_account_form
 msgid ""
 "¿Está seguro de que desea sincronizar todos los productos de Producteca? "
 "Esta operación puede tomar varios minutos."
-msgstr "¿Estás seguro de que querés sincronizar todos los productos de Producteca? Esta operación puede tardar varios minutos."
+msgstr ""
+"¿Estás seguro de que querés sincronizar todos los productos de Producteca? "
+"Esta operación puede tardar varios minutos."

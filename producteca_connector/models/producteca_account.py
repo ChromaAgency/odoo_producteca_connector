@@ -142,6 +142,16 @@ class ProductecaAccountConfig(models.Model):
          'Only one price synchronization option can be active at a time. Either Producteca modifies product prices OR Odoo updates Producteca prices, but not both.')
     ]
 
+    @api.constrains('is_odoo_able_to_update_producteca_shipments', 'is_odoo_able_to_update_shipment_date')
+    def _check_shipment_date_requires_shipment_update(self):
+        """Validate that shipment date update requires shipment update to be enabled."""
+        for record in self:
+            if record.is_odoo_able_to_update_shipment_date and not record.is_odoo_able_to_update_producteca_shipments:
+                raise ValidationError(
+                    _("To enable 'Is Odoo Able to Update Shipment Date', you must first enable "
+                      "'Is Odoo Able to Update Producteca Shipments'.")
+                )
+
     @api.constrains('default_pricelist_id', 'pricelist_ids')
     def _check_default_pricelist_restrictions(self):
         for record in self:
