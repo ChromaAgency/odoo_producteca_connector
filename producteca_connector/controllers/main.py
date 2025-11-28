@@ -33,7 +33,6 @@ class ProductecaImageController(http.Controller):
     @http.route(['/producteca/webhooks'], type='http', auth='none', methods=['POST'], csrf=False)
     def webhooks(self, **post):
         json_body = request.httprequest.data
-        _logger.info(f"Webhook recibido: {post}, {json_body}")
         data = json.loads(json_body)
         resource_type = data['resourceType']
         resource_id = data['resourceId']
@@ -86,11 +85,9 @@ class ProductecaImageController(http.Controller):
         try:
             product = request.env['product.product'].sudo().browse(product_id).exists()
             if not product:
-                _logger.info(f"Producto no encontrado para la imagen: ID {product_id}")
                 return request.not_found()
                 
             if not product.image_1920:
-                _logger.info(f"Imagen no disponible para el producto: ID {product_id}")
                 return request.not_found()
                 
             image_data = base64.b64decode(product.image_1920)
@@ -210,7 +207,6 @@ class ProductecaIInvoiceController(http.Controller):
                     pdf_data = False
             
             if not pdf_data:
-                _logger.info(f"El contenido del PDF (invoice_pdf_report_file) para la factura ID {invoice_id} está vacío o no se pudo decodificar. Intentando generar el informe.")
                 try:
                     report_name_technical = 'account.account_invoices'
 

@@ -370,7 +370,6 @@ class ProductTemplate(models.Model):
             Exception: If product name is missing for new products
         """
         producteca_response = filter_empty_values(producteca_response)
-        _logger.info(producteca_response)
         vals = {
             'is_producteca_product': True,
         }
@@ -541,7 +540,6 @@ class ProductTemplate(models.Model):
         })
         template_vals = self._prepare_producteca_to_odoo_product_dict(producteca_body, False, account)
         try:
-            _logger.info(template_vals)
             template = self.env['product.template'].sudo().create(template_vals)
             template.flush_recordset()
             template.invalidate_recordset()

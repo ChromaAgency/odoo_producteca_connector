@@ -445,7 +445,6 @@ class SaleOrder(models.Model):
             saleorder_response = client.SalesOrder.search(params=params)
             for result in saleorder_response.results:
                 sale_order_id = result.order_id
-                _logger.info(sale_order_id)
                 if not sale_order_id:
                     continue
                 sale_order_obj = client.SalesOrder.get(sale_order_id)

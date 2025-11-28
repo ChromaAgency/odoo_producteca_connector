@@ -37,10 +37,7 @@ class ProductPricelist(models.Model):
         product_service = client.Product
         product_service.create_if_it_doesnt_exist = account_data['create_if_dosnt_exist']
         
-        _logger.info(f"Syncing price for product: {sync_data}")
-
         result = product_service.synchronize(sync_data)
-        _logger.info(f"Sync result: {result}")
         return result
 
     def _sync_prices_for_account(self, account_id, pricelist_id=None, use_list_price=False):
