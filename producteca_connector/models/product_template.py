@@ -859,9 +859,10 @@ class ProductTemplate(models.Model):
         pricelists = self._obtain_pricelist_for_product(template, account)
         stocks_data = self._obtain_stocks_for_product(template, account)
         
-        
-        image_product = template.product_variant_ids[0] if template.product_variant_ids else template
-        image_url = f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{image_product.id}"
+        image_product = template.product_variant_ids[0] if template.product_variant_ids else None
+        image_url = None
+        if image_product:
+            image_url = f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{image_product.id}"
         deals = None
         
         product_data = {
@@ -977,6 +978,9 @@ class ProductTemplate(models.Model):
             return False
         
         for template in templates:
+            if template.attribute_line_ids and not template.product_variant_ids:
+                template._create_variant_ids()
+            
             for account in producteca_account_ids:
                 if not account.create_if_dosnt_exist:
                     continue

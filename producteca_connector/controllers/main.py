@@ -85,17 +85,37 @@ class ProductecaImageController(http.Controller):
         try:
             product = request.env['product.product'].sudo().browse(product_id).exists()
             if not product:
-                return request.not_found()
+                _logger.info(f"Producto no encontrado para ID {product_id}")
+                raise request.not_found()
+            if not product.has_image:
+                _logger.info(f"Producto ID {product_id} no tiene imagen asociada")
+                raise request.not_found()
+            
+            image_fields = [
+                'image_1920',
+                'image_1024',
+                'image_512',
+                'image_256',
+                'image_128',
+            ]
+            
+            image_base64 = None
+            for field in image_fields:
+                if hasattr(product, field):
+                    image_value = getattr(product, field)
+                    if image_value:
+                        image_base64 = image_value
+                        break
+            
+            if not image_base64:
+                raise request.not_found()
                 
-            if not product.image_1920:
-                return request.not_found()
-                
-            image_data = base64.b64decode(product.image_1920)
+            image_data = base64.b64decode(image_base64)
             
             content_type = 'image/jpeg'
-            if product.image_1920.startswith(b'\x89PNG'):
+            if image_data.startswith(b'\x89PNG'):
                 content_type = 'image/png'
-            if product.image_1920.startswith(b'GIF8'):
+            elif image_data.startswith(b'GIF8'):
                 content_type = 'image/gif'
             
             return request.make_response(
@@ -108,7 +128,7 @@ class ProductecaImageController(http.Controller):
             )
         except Exception as e:
             _logger.error(f"Error al obtener imagen del producto ID {product_id}: {str(e)}", exc_info=True)
-            return request.not_found("Error al procesar la imagen.")
+            raise request.not_found()
 
 
 class ProductecaIInvoiceController(http.Controller):
