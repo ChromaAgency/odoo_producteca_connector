@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 18.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-28 19:57+0000\n"
-"PO-Revision-Date: 2025-11-28 19:57+0000\n"
+"POT-Creation-Date: 2025-11-28 21:08+0000\n"
+"PO-Revision-Date: 2025-11-28 21:08+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -80,6 +80,11 @@ msgstr ""
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_move__producteca_payment_state__approved
 msgid "Approved"
 msgstr "Aprobado"
+
+#. module: producteca_connector
+#: model:ir.model.fields.selection,name:producteca_connector.selection__producteca_account__stock_quantity_field__available_quantity
+msgid "Available Quantity (Available Stock)"
+msgstr "Cantidad Disponible (Stock Disponible)"
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__bearer_token
@@ -377,13 +382,16 @@ msgstr ""
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_odoo_able_to_update_producteca_shipments
 msgid ""
 "If enabled, Odoo can update shipment information in Producteca marketplace."
-msgstr "Si está habilitado, Odoo puede actualizar la información general de las entregas de Producteca"
+msgstr ""
+"Si está habilitado, Odoo puede actualizar la información general de las "
+"entregas de Producteca"
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_odoo_able_to_update_shipment_date
 msgid ""
 "If enabled, Odoo can update the shipment date in Producteca marketplace."
-msgstr "Si está habilitado, Odoo puede actualizar la fecha de entrega de Producteca."
+msgstr ""
+"Si está habilitado, Odoo puede actualizar la fecha de entrega de Producteca."
 
 #. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_producteca_account__is_producteca_able_to_create_products
@@ -501,7 +509,7 @@ msgstr "¿Puede Odoo actualizar precios en Producteca?"
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__is_odoo_able_to_update_producteca_shipments
 msgid "Is Odoo Able to Update Producteca Shipments?"
-msgstr ""
+msgstr "¿Puede Odoo actualizar envíos en Producteca?"
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__is_odoo_able_to_update_producteca_stock
@@ -511,7 +519,7 @@ msgstr "¿Puede Odoo actualizar stock en Producteca?"
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__is_odoo_able_to_update_shipment_date
 msgid "Is Odoo Able to Update Shipment Date?"
-msgstr ""
+msgstr "¿Puede Odoo actualizar la fecha de envío?"
 
 #. module: producteca_connector
 #: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__is_product_price_modified_by_producteca
@@ -866,6 +874,11 @@ msgid "Puntos de Fidelidad"
 msgstr ""
 
 #. module: producteca_connector
+#: model:ir.model.fields.selection,name:producteca_connector.selection__producteca_account__stock_quantity_field__quantity
+msgid "Quantity (Total Stock)"
+msgstr "Cantidad (Stock Total)"
+
+#. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_stock_quant
 msgid "Quants"
 msgstr ""
@@ -893,6 +906,15 @@ msgid "Sales Order"
 msgstr "Orden de venta"
 
 #. module: producteca_connector
+#: model:ir.model.fields,help:producteca_connector.field_producteca_account__stock_quantity_field
+msgid ""
+"Select which stock field to send to Producteca: 'Quantity' sends total "
+"stock, 'Available Quantity' sends available stock (total - reserved)."
+msgstr ""
+"Seleccioná qué campo de stock enviar a Producteca: 'Cantidad' envía el stock "
+"total, 'Cantidad Disponible' envía el stock disponible (total - reservado)."
+
+#. module: producteca_connector
 #: model:ir.model.fields,help:producteca_connector.field_sale_order__cart_id
 msgid "Shopping cart associated with this order in Producteca."
 msgstr "Carrito de compras asociado a esta orden en Producteca."
@@ -901,6 +923,11 @@ msgstr "Carrito de compras asociado a esta orden en Producteca."
 #: model_terms:ir.ui.view,arch_db:producteca_connector.view_producteca_account_form
 msgid "Sincronizar Productos"
 msgstr ""
+
+#. module: producteca_connector
+#: model:ir.model.fields,field_description:producteca_connector.field_producteca_account__stock_quantity_field
+msgid "Stock Quantity Field"
+msgstr "Campo de Cantidad de Stock"
 
 #. module: producteca_connector
 #: model:ir.actions.server,name:producteca_connector.ir_cron_sync_prices_to_producteca_ir_actions_server
@@ -975,6 +1002,16 @@ msgstr ""
 #: model:ir.model.fields.selection,name:producteca_connector.selection__account_journal__producteca_payment_method__ticket
 msgid "Ticket"
 msgstr ""
+
+#. module: producteca_connector
+#. odoo-python
+#: code:addons/producteca_connector/models/producteca_account.py:0
+msgid ""
+"To enable 'Is Odoo Able to Update Shipment Date', you must first enable 'Is "
+"Odoo Able to Update Producteca Shipments'."
+msgstr ""
+"Para habilitar '¿Puede Odoo actualizar la fecha de envío?', primero debés "
+"habilitar '¿Puede Odoo actualizar envíos en Producteca?'."
 
 #. module: producteca_connector
 #: model:ir.model,name:producteca_connector.model_stock_picking

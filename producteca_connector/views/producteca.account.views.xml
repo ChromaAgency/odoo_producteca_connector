@@ -37,7 +37,7 @@
                             <group>
                                 <field name="company_id"/>
                                 <field name="imported_sale_action"/>
-                                <field name="default_warehouse_id"/>
+                                <field name="default_warehouse_id" domain="[('id', 'not in', warehouse_ids)]"/>
                                 <field name="warehouse_ids" widget="many2many_tags"/>
                                 <field name="default_pricelist_id" domain="[('id', 'not in', pricelist_ids)]"/>
                                 <field name="pricelist_ids" widget="many2many_tags"/>
