@@ -126,6 +126,15 @@ class ProductecaAccountConfig(models.Model):
         help="If enabled, Odoo can update product stock quantities in Producteca marketplace."
     )
 
+    is_odoo_able_to_update_producteca_shipments = fields.Boolean(
+        string='Is Odoo Able to Update Producteca Shipments?',
+        help="If enabled, Odoo can update shipment information in Producteca marketplace."
+    )
+    is_odoo_able_to_update_shipment_date = fields.Boolean(
+        string='Is Odoo Able to Update Shipment Date?',
+        help="If enabled, Odoo can update the shipment date in Producteca marketplace."
+    )
+
 
     _sql_constraints = [
         ('check_price_sync_exclusivity', 

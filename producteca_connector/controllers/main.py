@@ -46,7 +46,7 @@ class ProductecaImageController(http.Controller):
             self._process_sale_webhook(client, account_id, resource_id)
         return request.make_response("OK")
 
-    @http.route('/product/image/<int:product_id>', type='http', auth='public', csrf=False, methods=['GET'])
+    @http.route('/producteca/image/<int:product_id>', type='http', auth='none', csrf=False, methods=['GET'])
     def get_product_image(self, product_id, **kwargs):
         """Serve product image via HTTP endpoint for external API consumption.
         

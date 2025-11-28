@@ -745,7 +745,10 @@ class ProductTemplate(models.Model):
         
         product_response = product_service.synchronize(producteca_body)
         
-        if hasattr(product_response, 'to_dict'):
+        product_dict = None
+        if hasattr(product_response, 'model_dump'):
+            product_dict = product_response.model_dump(by_alias=True, exclude_none=True)
+        elif hasattr(product_response, 'to_dict'):
             product_dict = product_response.to_dict()
         elif isinstance(product_response, dict):
             product_dict = product_response
