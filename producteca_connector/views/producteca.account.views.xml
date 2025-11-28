@@ -33,7 +33,7 @@
                         <field name="bearer_token"/>
                     </group>
                     <notebook>
-                        <page string="Configuración">
+                        <page string="Configuración">                            
                             <group>
                                 <field name="company_id"/>
                                 <field name="imported_sale_action"/>
@@ -46,18 +46,21 @@
                         </page>
                         <page string="Opciones">
                             <group>
+                            <group>
                                 <field name="is_producteca_able_to_create_products"/>
                                 <field name="is_producteca_able_to_modified_products"/>
-                                <field name="is_stock_modified_by_producteca"/>
                                 <field name="is_product_price_modified_by_producteca"/>
+                                <field name="is_odoo_able_to_update_producteca_prices"/>
                                 <field name="create_if_dosnt_exist"/>
                             </group>
                             <group>
                                 <field name="get_orders_from_last_days"/>
-                                <field name="is_odoo_able_to_update_producteca_prices"/>
+                                <field name="stock_quantity_field"/>
+                                <field name="is_stock_modified_by_producteca"/>
                                 <field name="is_odoo_able_to_update_producteca_stock"/>
                                 <field name="is_odoo_able_to_update_producteca_shipments"/>
                                 <field name="is_odoo_able_to_update_shipment_date"/>
+                            </group>
                             </group>
                         </page>
                     </notebook>
