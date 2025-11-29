@@ -757,7 +757,10 @@ class ProductTemplate(models.Model):
             return False
         
         if product_dict:
-            self._handle_producteca_connection_ids(product_dict, self, account)
+            template_id = int(producteca_body.get('code'))
+            template = self.env['product.template'].sudo().browse(template_id)
+            if template.exists():
+                self._handle_producteca_connection_ids(product_dict, template, account)
         
         return True
 
@@ -859,9 +862,11 @@ class ProductTemplate(models.Model):
         pricelists = self._obtain_pricelist_for_product(template, account)
         stocks_data = self._obtain_stocks_for_product(template, account)
         
-        image_product = template.product_variant_ids[0] if template.product_variant_ids else None
-        image_url = None
-        if image_product:
+        if template.product_variant_ids:
+            image_product = template.product_variant_ids[0]
+            image_url = f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/variant/{image_product.id}"
+        else:
+            image_product = template
             image_url = f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{image_product.id}"
         deals = None
         

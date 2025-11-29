@@ -30,65 +30,12 @@ class ProductecaImageController(http.Controller):
         sale_order = client.SalesOrder.get(resource_id)
         return request.env['sale.order'].with_delay()._upset_saleorder_from_producteca(account_id, sale_order.to_dict())
 
-    @http.route(['/producteca/webhooks'], type='http', auth='none', methods=['POST'], csrf=False)
-    def webhooks(self, **post):
-        json_body = request.httprequest.data
-        data = json.loads(json_body)
-        resource_type = data['resourceType']
-        resource_id = data['resourceId']
-        account_id = request.env['producteca.account'].sudo().search([('producteca_company_id', '=', data['companyId'])], limit=1)
-        if not account_id:
-            return request.not_found("companyId not found")
-        client = account_id.get_client()
-        if resource_type == 'products':
-            self._process_product_webhook(account_id, resource_id)
-        if resource_type == 'products/saleOrders':
-            self._process_sale_webhook(client, account_id, resource_id)
-        return request.make_response("OK")
-
-    @http.route('/producteca/image/<int:product_id>', type='http', auth='none', csrf=False, methods=['GET'])
-    def get_product_image(self, product_id, **kwargs):
-        """Serve product image via HTTP endpoint for external API consumption.
-        
-        This endpoint provides public access to product images for the Producteca
-        marketplace integration. It retrieves the primary product image and serves
-        it with appropriate content-type headers for browser compatibility.
-        
-        The endpoint is designed to be publicly accessible to support external
-        marketplace systems that need to display product images. It includes
-        proper error handling and logging for debugging image serving issues.
-        
-        Args:
-            product_id (int): The ID of the product template whose image to serve
-            **kwargs: Additional query parameters (unused but included for flexibility)
-            
-        Returns:
-            werkzeug.Response: HTTP response containing:
-                - Image binary data with proper content-type header
-                - 404 error if product not found
-                - 500 error if image processing fails
-                
-        Security Notes:
-            - Uses 'public' auth to allow external access
-            - CSRF disabled for API compatibility
-            - No sensitive data exposure (only public product images)
-            
-        Performance Considerations:
-            - Images are served directly from database without caching
-            - Consider implementing CDN or file storage for production
-            - Large images may impact response times
-            
-        Example Usage:
-            GET /product/image/123
-            Returns the primary image for product template ID 123
-        """
+    def _get_image_from_model_product(self, product, model):
         try:
-            product = request.env['product.product'].sudo().browse(product_id).exists()
+            product = request.env[model].sudo().browse(product).exists()
             if not product:
-                _logger.info(f"Producto no encontrado para ID {product_id}")
                 raise request.not_found()
             if not product.has_image:
-                _logger.info(f"Producto ID {product_id} no tiene imagen asociada")
                 raise request.not_found()
             
             image_fields = [
@@ -127,8 +74,34 @@ class ProductecaImageController(http.Controller):
                 ]
             )
         except Exception as e:
-            _logger.error(f"Error al obtener imagen del producto ID {product_id}: {str(e)}", exc_info=True)
+            _logger.error(f"Error al obtener imagen del producto ID {product}: {str(e)}", exc_info=True)
             raise request.not_found()
+        
+    @http.route(['/producteca/webhooks'], type='http', auth='none', methods=['POST'], csrf=False)
+    def webhooks(self, **post):
+        json_body = request.httprequest.data
+        data = json.loads(json_body)
+        resource_type = data['resourceType']
+        resource_id = data['resourceId']
+        account_id = request.env['producteca.account'].sudo().search([('producteca_company_id', '=', data['companyId'])], limit=1)
+        if not account_id:
+            return request.not_found("companyId not found")
+        client = account_id.get_client()
+        if resource_type == 'products':
+            self._process_product_webhook(account_id, resource_id)
+        if resource_type == 'products/saleOrders':
+            self._process_sale_webhook(client, account_id, resource_id)
+        return request.make_response("OK")
+    
+
+    @http.route('/producteca/image/<int:product_id>', type='http', auth='none', csrf=False, methods=['GET'])
+    def get_product_image(self, product_id, **kwargs):
+        request._get_image_from_model_product(product_id, 'product.template')
+
+    @http.route('/producteca/image/variant/<int:product_id>', type='http', auth='none', csrf=False, methods=['GET'])
+    def get_product_variant_image(self, product_id, **kwargs):
+        request._get_image_from_model_product(product_id, 'product.product')
+        
 
 
 class ProductecaIInvoiceController(http.Controller):
