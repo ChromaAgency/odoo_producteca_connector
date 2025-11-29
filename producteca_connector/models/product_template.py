@@ -862,12 +862,17 @@ class ProductTemplate(models.Model):
         pricelists = self._obtain_pricelist_for_product(template, account)
         stocks_data = self._obtain_stocks_for_product(template, account)
         
+        image_array = []
         if template.product_variant_ids:
-            image_product = template.product_variant_ids[0]
-            image_url = f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/variant/{image_product.id}"
+            for variant in template.product_variant_ids:
+                image_array.append({
+                    "url": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/variant/{variant.id}"
+                })
         else:
             image_product = template
-            image_url = f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{image_product.id}"
+            image_array.append({
+                "url": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{image_product.id}"
+            })
         deals = None
         
         product_data = {
@@ -876,8 +881,10 @@ class ProductTemplate(models.Model):
             "category": template.categ_id.complete_name if template.categ_id else None,
             "brand": template.product_brand_id.name if template.product_brand_id else None,
             "notes": template.description if template.description else None,
-            "pictures": [{"url": image_url}] if image_url else []
         }
+
+        if image_array:
+            product_data["pictures"] = image_array
         
         
         if template.product_tag_ids:

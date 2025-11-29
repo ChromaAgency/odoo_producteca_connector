@@ -35,8 +35,6 @@ class ProductecaImageController(http.Controller):
             product = request.env[model].sudo().browse(product).exists()
             if not product:
                 raise request.not_found()
-            if not product.has_image:
-                raise request.not_found()
             
             image_fields = [
                 'image_1920',
@@ -96,12 +94,13 @@ class ProductecaImageController(http.Controller):
 
     @http.route('/producteca/image/<int:product_id>', type='http', auth='none', csrf=False, methods=['GET'])
     def get_product_image(self, product_id, **kwargs):
-        request._get_image_from_model_product(product_id, 'product.template')
+        image = self._get_image_from_model_product(product_id, 'product.template')
+        return image
 
     @http.route('/producteca/image/variant/<int:product_id>', type='http', auth='none', csrf=False, methods=['GET'])
     def get_product_variant_image(self, product_id, **kwargs):
-        request._get_image_from_model_product(product_id, 'product.product')
-        
+        image = self._get_image_from_model_product(product_id, 'product.product')
+        return image
 
 
 class ProductecaIInvoiceController(http.Controller):
