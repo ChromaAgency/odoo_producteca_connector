@@ -55,11 +55,10 @@
                             </group>
                             <group>
                                 <field name="get_orders_from_last_days"/>
-                                <field name="stock_quantity_field"/>
                                 <field name="is_stock_modified_by_producteca"/>
                                 <field name="is_odoo_able_to_update_producteca_stock"/>
                                 <field name="is_odoo_able_to_update_producteca_shipments"/>
-                                <field name="is_odoo_able_to_update_shipment_date"/>
+                                <field name="is_odoo_able_to_update_shipment_date" groups="base.group_no_one"/>
                             </group>
                             </group>
                         </page>

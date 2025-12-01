@@ -261,10 +261,12 @@ class SaleOrder(models.Model):
 
     def _get_warehouse(self, warehouse_name, account):
         if warehouse_name == 'Default':
-            warehouse = account.default_warehouse_id.id
+            warehouse = account.default_warehouse_id
         else:
-            warehouse = account.warehouse_ids.filtered(lambda x: x.producteca_warehouse_name == warehouse_name).id
-        return warehouse
+            warehouse = account.warehouse_ids.filtered(lambda x: x.producteca_warehouse_name == warehouse_name)
+        if not warehouse:
+            return False
+        return warehouse.id
 
 
 
@@ -372,12 +374,14 @@ class SaleOrder(models.Model):
             'origin_platform': origin_platform if origin_platform else '',
             'producteca_id': body.get('id'),
             'company_id': account.company_id.id,
-            # 'warehouse_id': warehouse if warehouse else account.default_warehouse_id.id,
             'producteca_shipment_data': body.get('shipments'),
             'producteca_account_id': account.id,
             'cart_id': self._get_cart_id(body),
             'producteca_payments_data': body.get('payments') if body.get('payments') else False
         }
+        if warehouse:
+            sale_order_dict['warehouse_id'] = warehouse
+
         return sale_order_dict
 
     def _run_quotation_process(self):

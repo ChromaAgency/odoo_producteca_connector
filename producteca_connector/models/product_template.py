@@ -918,10 +918,7 @@ class ProductTemplate(models.Model):
                 for stock in variant_stocks[0]['stocks']:
                     warehouse_name = stock.warehouse_id._get_producteca_warehouse_name(account) if stock.warehouse_id else None
                     stock_dict = {"warehouse": warehouse_name}
-                    if account.stock_quantity_field == 'available_quantity':
-                        stock_dict["quantity"] = stock.available_quantity
-                    else:
-                        stock_dict["quantity"] = stock.quantity
+                    stock_dict["quantity"] = stock.quantity
                     variation_dict["stocks"].append(stock_dict)
             
             if variation_dict.get("stocks") and variation_dict["stocks"][-1].get('warehouse') is None:

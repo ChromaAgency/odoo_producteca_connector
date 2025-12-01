@@ -33,10 +33,7 @@ class StockQuant(models.Model):
             return
         
         stock_data = {"warehouse": warehouse_name}
-        if account.stock_quantity_field == 'available_quantity':
-            stock_data["quantity"] = self.available_quantity
-        else:
-            stock_data["quantity"] = self.quantity
+        stock_data["quantity"] = self.quantity
         
         producteca_body = {
             "sku": self.product_id.default_code,
