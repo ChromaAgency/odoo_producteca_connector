@@ -49,8 +49,7 @@ class AccountPayment(models.Model):
             )
             
             if existing_payment and existing_payment.status == 'Approved':
-                producteca_body.pop('status', None)
-                producteca_body.pop('hasCancelableStatus', None)
+                return existing_payment
             
             result = producteca_sale_order.update_payment(self.producteca_payment_id, producteca_body)
         else:
