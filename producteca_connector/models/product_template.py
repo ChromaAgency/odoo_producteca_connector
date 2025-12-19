@@ -1046,3 +1046,34 @@ class ProductTemplate(models.Model):
                 products_response = client.Product.search(params=params)
                     
         return True
+
+    def write(self, vals):
+        list_price_changed = 'list_price' in vals
+        
+        templates_to_sync = []
+        if list_price_changed:
+            for template in self:
+                if template.producteca_connection_ids:
+                    templates_to_sync.append(template.id)
+        
+        result = super(ProductTemplate, self).write(vals)
+        
+        if list_price_changed and templates_to_sync:
+            self._trigger_list_price_sync(templates_to_sync)
+        
+        return result
+
+    def _trigger_list_price_sync(self, template_ids):
+        ProductPricelist = self.env['product.pricelist']
+        
+        for template_id in template_ids:
+            template = self.browse(template_id)
+            
+            _logger.info(
+                f"Disparando sincronización de precios para template '{template.name}' "
+                f"debido a cambio en list_price"
+            )
+            
+            for variant in template.product_variant_ids:
+                if variant.producteca_connection_ids:
+                    ProductPricelist._sync_product_price_on_change(variant.id)

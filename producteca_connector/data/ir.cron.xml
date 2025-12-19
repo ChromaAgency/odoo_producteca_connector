@@ -10,14 +10,14 @@
         <field name="active" eval="True"/>
     </record>
     <record id="ir_cron_sync_prices_to_producteca" model="ir.cron">
-            <field name="name">Sync Prices to Producteca</field>
+            <field name="name">Sync Prices to Producteca (Backup)</field>
             <field name="model_id" ref="product.model_product_pricelist"/>
             <field name="state">code</field>
             <field name="code">model.cron_sync_all_pricelists_to_producteca()</field>
             <field name="user_id" ref="base.user_root"/>
             <field name="interval_number">1</field>
-            <field name="interval_type">hours</field>
-            <field name="active" eval="True"/>
+            <field name="interval_type">days</field>
+            <field name="active" eval="False"/>
         </record>
         <record id="ir_cron_create_product_in_producteca_queue" model="ir.cron">
             <field name="name">Producteca: Crear Productos Pendientes en Producteca</field>
