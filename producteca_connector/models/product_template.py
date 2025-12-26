@@ -37,6 +37,9 @@ class ProductTemplate(models.Model):
     )
     is_already_sync = fields.Boolean(
         string="Is Already Sync", 
+        compute='_compute_is_already_sync',
+        store=True,
+        default=False,
         readonly=True, 
         copy=False,
         help="Indicates if this product template has been synchronized to Producteca at least once."
@@ -48,6 +51,15 @@ class ProductTemplate(models.Model):
         help="Connections between this product template and Producteca marketplace products."
     )
 
+    @api.depends('producteca_connection_ids')
+    def _compute_is_already_sync(self):
+        """Compute if product is already synced based on current connections.
+        
+        Returns True if product has active connections to Producteca, False otherwise.
+        This is a pure computed field that always reflects the current state.
+        """
+        for record in self:
+            record.is_already_sync = bool(record.producteca_connection_ids)
 
 
     def _get_or_create_product_attribute(self, attribute_key):
@@ -377,7 +389,6 @@ class ProductTemplate(models.Model):
         if account.is_producteca_able_to_modified_products or not odoo_template:
             vals.update({
                 'is_producteca_product': True,
-                'is_already_sync': True,
             })
             
             if producteca_response.get('notes'):
@@ -726,7 +737,7 @@ class ProductTemplate(models.Model):
         self._update_product_price_from_sale_line(product, line, account)
         return product
 
-    def _create_product_in_producteca(self, account, producteca_body):
+    def _create_product_in_producteca(self, account, producteca_body, is_update=False):
         """Create or update product in Producteca marketplace.
         
         Synchronizes template data to Producteca, creating connection if needed.
@@ -735,13 +746,18 @@ class ProductTemplate(models.Model):
         Args:
             account (producteca.account): Account for API calls
             producteca_body (dict): Product data to send (already prepared, single variation or simple product)
+            is_update (bool): If True, this is an update operation (doesn't check create_if_dosnt_exist)
             
         Returns:
             bool: True if successful
         """
         client = account.get_client()
         product_service = client.Product
-        product_service.create_if_it_doesnt_exist = account.create_if_dosnt_exist
+        
+        if not is_update:
+            product_service.create_if_it_doesnt_exist = account.create_if_dosnt_exist
+        else:
+            product_service.create_if_it_doesnt_exist = True
         
         product_response = product_service.synchronize(producteca_body)
         
@@ -787,14 +803,15 @@ class ProductTemplate(models.Model):
             if price and pricelist_name:
                 product_prices.append({
                     'amount': price,
-                    'currency': account.default_pricelist_id.currency_id.name,
+                    'currency': "Usd" if account.default_pricelist_id.currency_id.id == self.env.ref('base.USD').id else "Local",
                     'priceList': pricelist_name
                 })
         else:            
             if template.list_price:
+                currency_id = template.currency_id.id if template.currency_id else account.company_id.currency_id.id
                 product_prices.append({
                     'amount': template.list_price,
-                    'currency': template.currency_id.name if template.currency_id else account.company_id.currency_id.name,
+                    'currency': "Usd" if currency_id == self.env.ref('base.USD').id else "Local",
                     'priceList': 'Default'
                 })
         
@@ -806,7 +823,7 @@ class ProductTemplate(models.Model):
                 if price:
                     product_prices.append({
                         'amount': price,
-                        'currency': pricelist.currency_id.name,
+                        'currency': "Usd" if pricelist.currency_id.id == self.env.ref('base.USD').id else "Local",
                         'priceList': pricelist_name
                     })
             
@@ -865,14 +882,15 @@ class ProductTemplate(models.Model):
         image_array = []
         if template.product_variant_ids:
             for variant in template.product_variant_ids:
-                image_array.append({
-                    "url": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/variant/{variant.id}"
-                })
+                if variant.image_1920:
+                    image_array.append({
+                        "url": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/variant/{variant.id}"
+                    })
         else:
-            image_product = template
-            image_array.append({
-                "url": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{image_product.id}"
-            })
+            if template.image_1920:
+                image_array.append({
+                    "url": f"{self.env['ir.config_parameter'].sudo().get_param('web.base.url')}/producteca/image/{template.id}"
+                })
         deals = None
         
         product_data = {
@@ -1003,7 +1021,6 @@ class ProductTemplate(models.Model):
                 else:
                     self.with_delay()._create_product_in_producteca(account, product_dict)
                 
-                template.write({'is_already_sync': True})
         return True
 
     def sync_all_products_from_producteca(self):
@@ -1060,6 +1077,12 @@ class ProductTemplate(models.Model):
         
         if list_price_changed and templates_to_sync:
             self._trigger_list_price_sync(templates_to_sync)
+
+        if 'active' in vals and not vals['active']:
+            for record in self:
+                if record.producteca_connection_ids:
+                    record.producteca_connection_ids.sudo().unlink()
+        
         
         return result
 
@@ -1077,3 +1100,59 @@ class ProductTemplate(models.Model):
             for variant in template.product_variant_ids:
                 if variant.producteca_connection_ids:
                     ProductPricelist._sync_product_price_on_change(variant.id)
+
+    def action_update_product_in_producteca(self):
+        """Action to update product in Producteca marketplace.
+        
+        Opens wizard if multiple accounts, shows warning and executes if single account.
+        """
+        self.ensure_one()
+        
+        if not self.producteca_connection_ids:
+            from odoo.exceptions import UserError
+            raise UserError(
+                "Este producto no tiene conexiones con Producteca. "
+                "No se puede actualizar un producto que no ha sido sincronizado."
+            )
+        
+        account_ids = self.producteca_connection_ids.mapped('producteca_account_id')
+        
+        return {
+            'name': 'Actualizar Producto en Producteca',
+            'type': 'ir.actions.act_window',
+            'res_model': 'update.producteca.product',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_product_tmpl_id': self.id,
+                'default_account_ids': [(6, 0, account_ids.ids)],
+            }
+        }
+
+    def _update_product_in_producteca(self, account):
+        """Update product in Producteca for a specific account.
+        
+        This method queues an update job for the product in Producteca.
+        SKU is always sent as Producteca requires it to identify products.
+        
+        Args:
+            account (producteca.account): Account to update product in
+        """
+        self.ensure_one()
+        
+        if self.attribute_line_ids and not self.product_variant_ids:
+            self._create_variant_ids()
+        
+        product_dict = self._prepare_producteca_product_dict(self, account)
+        
+        if product_dict.get('variations'):
+            for variation in product_dict['variations']:
+                variation_payload = self._prepare_variation_payload(variation, product_dict)
+                self.with_delay()._create_product_in_producteca(account, variation_payload, is_update=True)
+        else:
+            self.with_delay()._create_product_in_producteca(account, product_dict, is_update=True)
+        
+        _logger.info(
+            f"Enqueued update for product '{self.name}' (ID: {self.id}) "
+            f"in account '{account.account_name}'"
+        )

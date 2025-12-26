@@ -219,6 +219,23 @@ class ProductecaAccountConfig(models.Model):
                 }
             }
 
+    def _toggle_product_creation_cron(self):
+        """Activate or deactivate the product creation cron based on create_if_dosnt_exist.
+        
+        The cron is activated when at least one active account has create_if_dosnt_exist=True.
+        The cron is deactivated when no active accounts have create_if_dosnt_exist=True.
+        """
+        cron = self.env.ref('producteca_connector.ir_cron_create_product_in_producteca_queue', raise_if_not_found=False)
+        if not cron:
+            return
+        
+        has_active_account = self.env['producteca.account'].sudo().search([
+            ('active', '=', True),
+            ('create_if_dosnt_exist', '=', True)
+        ], limit=1)
+        
+        cron.sudo().write({'active': bool(has_active_account)})
+
     def get_client(self):
         """Get authenticated Producteca API client.
         
@@ -247,6 +264,18 @@ class ProductecaAccountConfig(models.Model):
         """
         self.ensure_one()
         return self.env['product.template'].sync_all_products_from_producteca()
+
+
+    def write(self, vals):
+        result = super(ProductecaAccountConfig, self).write(vals)
+        if 'create_if_dosnt_exist' in vals or 'active' in vals:
+            self._toggle_product_creation_cron()
+        return result
+
+    def unlink(self):
+        result = super(ProductecaAccountConfig, self).unlink()
+        self.env['producteca.account']._toggle_product_creation_cron()
+        return result
 
     def sync_all_stock_to_producteca(self):
         """Synchronize all product stock from Odoo to Producteca marketplace.

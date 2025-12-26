@@ -265,7 +265,9 @@ class SaleOrder(models.Model):
         else:
             warehouse = account.warehouse_ids.filtered(lambda x: x.producteca_warehouse_name == warehouse_name)
         if not warehouse:
-            return False
+            return self.env['stock.warehouse'].search([('producteca_warehouse_name', '=', warehouse_name), ('company_id', '=', account.company_id.id)], limit=1).id
+        if not warehouse:
+            raise UserError(f"Warehouse '{warehouse_name}' not found for account ID {account.id}")
         return warehouse.id
 
 
