@@ -108,7 +108,7 @@ class StockPicking(models.Model):
         for picking in self:
             # TODO: Check if we can use the _create_producteca_dict_for_picking
             if picking.producteca_account_id.is_odoo_able_to_update_producteca_shipments:
-                if picking.producteca_shipment_id and any(field in vals for field in PRODUCTECA_FIELDS) and not self.env.context.get("update_from_confirm"):
+                if picking.producteca_shipment_id and any(field in vals for field in PRODUCTECA_FIELDS) and not self.env.context.get("update_from_confirm") and not self.env.context.get("confirm_from_delivery"):
                     producteca_content_dict = {"id": picking.producteca_shipment_id}
                     if picking.producteca_account_id.is_odoo_able_to_update_shipment_date:
                         date_to_send = picking.date_done if picking.state == 'done' else picking.scheduled_date
@@ -127,10 +127,15 @@ class StockPicking(models.Model):
         return res
 
     def button_validate(self):
-        res = super(StockPicking, self).button_validate()
+        if self.env.context.get("confirm_from_delivery"):
+            for picking in self:
+                for move_line in picking.move_ids:
+                    move_line.quantity = move_line.product_uom_qty
+        if self.env.context.get("update_from_validate"):
+            return super(StockPicking, self).button_validate()
+        res = super(StockPicking, self.with_context(update_from_validate=True)).button_validate()
         for picking in self:
-            if picking.producteca_shipment_id and picking.state == 'done' and not self.env.context.get("update_from_confirm"):
-                picking = picking.with_context(update_from_validate=True)
+            if picking.producteca_shipment_id and picking.state == 'done':
                 picking.with_delay()._send_decreasestock_to_producteca()    
         return res
 
@@ -158,7 +163,7 @@ class StockMoveLine(models.Model):
         res = super(StockMoveLine, self).write(vals)
         for move_line in self:
             if move_line.picking_id.sale_id.producteca_id and ("qty_done" in vals and "product_uom_qty" in vals) and \
-                    not self.env.context.get("update_from_confirm") and not self.env.context.get("update_from_validate"):
+                    not self.env.context.get("update_from_confirm") and not self.env.context.get("update_from_validate") and not self.env.context.get("confirm_from_delivery"):
                 account = move_line.picking_id.sale_id.producteca_account_id
                 product_dict = {"products": {
                     "product": move_line.product_id.producteca_connection_ids.filtered(lambda x: x.producteca_account_id == account).producteca_id,

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Server Action: Update Stock in Producteca -->
+        <record id="action_update_stock_producteca" model="ir.actions.server">
+            <field name="name">Actualizar stock en Producteca</field>
+            <field name="model_id" ref="product.model_product_template"/>
+            <field name="binding_model_id" ref="product.model_product_template"/>
+            <field name="binding_view_types">list,form</field>
+            <field name="state">code</field>
+            <field name="code">
+stock_quant_obj = env['stock.quant']
+for connection in records.producteca_connection_ids:
+    stock_quant_obj.with_delay().sync_product_stock_to_producteca(connection.id)
+            </field>
+        </record>
+    </data>
+</odoo>

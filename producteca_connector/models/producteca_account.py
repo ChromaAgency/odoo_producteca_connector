@@ -79,6 +79,7 @@ class ProductecaAccountConfig(models.Model):
         ("quotation", "Create the sale order confirmed"),
         ("draft_invoice", "Confirm the sale order and create draft invoice"),
         ("confirm", "Confirm the sale order and create confirmed invoice"),
+        ("delivery", "Confirm the sale order and confirm delivery"),
     ], 
         string="Imported Sale Action", 
         required=True,

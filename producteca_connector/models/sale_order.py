@@ -310,10 +310,12 @@ class SaleOrder(models.Model):
         return sale_order_lines
 
     def _handle_delivery_line(self, body, order_lines):
-        carrier_product_name = f"Servicio de Entrega: {body.get('shipments')[0].get('method').get('courier')}"
-        delivery_product = self.env['product.product'].sudo().search([('name', '=', carrier_product_name)], limit=1)
-        
-        if not delivery_product:
+        delivery_method_name = body.get('shipments')[0].get('method').get('courier')
+        delivery_method = self.env['delivery.carrier'].search([('name', '=', delivery_method_name)], limit=1)
+        if delivery_method:
+            delivery_product = delivery_method.product_id
+        else:
+            carrier_product_name = f"Servicio de Entrega: {body.get('shipments')[0].get('method').get('courier')}"
             delivery_product = self.env['product.product'].create({
                 'name': carrier_product_name,
                 'type': 'service',
@@ -408,6 +410,30 @@ class SaleOrder(models.Model):
             for move in moves.filtered(lambda r: r.state != 'post'):
                 move.action_post()
         return self
+    
+    def _process_pickings_from_order(self, order, max_iterations=3):
+        """Process pickings with a maximum iteration limit.
+        
+        Args:
+            order: Sale order containing pickings to process
+            max_iterations: Maximum number of recursive calls (default 3 for Odoo's 3-step routing)
+        """
+        if max_iterations <= 0:
+            _logger.warning(f"Maximum iterations ({3}) reached for order {order.name}, some pickings may not be processed")
+            return
+        
+        for picking in order.picking_ids.filtered(lambda p: p.state != 'done'):
+            picking.sudo().with_context(confirm_from_delivery=True).button_validate()
+        if order.picking_ids.filtered(lambda p: p.state != 'done'):
+            self._process_pickings_from_order(order, max_iterations - 1)
+        return
+    
+    def _run_delivery_process(self):
+        for order in self:
+            if order.state not in ['sale', 'done']:
+                order.with_context(update_from_confirm=True).action_confirm()
+            self._process_pickings_from_order(order)
+        return self
 
     def _run_import_sale_action(self, account):
         if account.imported_sale_action == 'quotation':
@@ -416,13 +442,18 @@ class SaleOrder(models.Model):
             return self._run_draft_invoice_process()
         elif account.imported_sale_action == 'confirm':
             return self._run_confirm_process()
-        raise Exception("unsupported action")
+        elif account.imported_sale_action == 'delivery':
+            return self._run_delivery_process()
+        else:
+            raise Exception("unsupported action")
 
     def _upset_saleorder_from_producteca(self, account, body):
+        _logger.info(f"Upserting sale order from Producteca with ID: {body.get('id')}")
+        _logger.info(f"Sale order data: {body}")
         order_id = body.get('id')
-        order = self.env['sale.order'].search([('producteca_id', '=', order_id)])
         if not order_id:
             raise Exception("No se encontro el id de la orden")
+        order = self.env['sale.order'].search([('producteca_id', '=', order_id)])
         if order:
             order_lines = {line.product_id.id: line.id for line in order.order_line}
             sale_order_dict = self._prepare_sale_order_dict(body, account, order_lines)

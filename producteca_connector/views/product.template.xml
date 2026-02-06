@@ -9,6 +9,7 @@
             <xpath expr="//field[@name='barcode']" position="after">
                 <field name="is_producteca_product"/>
                 <field name="is_already_sync" invisible="1"/>
+                <field name="producteca_connection_ids" groups="base.group_no_one" readonly="1"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_update_product_in_producteca" 
@@ -17,7 +18,25 @@
                         icon="fa-refresh"
                         invisible="is_already_sync == False"
                         string="Actualizar en Producteca"/>
+                <button name="action_sync_prices_to_producteca" 
+                        type="object" 
+                        class="oe_stat_button" 
+                        icon="fa-usd"
+
+                        string="Sincronizar Precios"/>
             </xpath>
+        </field>
+    </record>
+
+    <record id="action_sync_prices_to_producteca_multi" model="ir.actions.server">
+        <field name="name">Sincronizar Precios a Producteca</field>
+        <field name="model_id" ref="product.model_product_template"/>
+        <field name="binding_model_id" ref="product.model_product_template"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">
+if records:
+    action = records.action_sync_prices_to_producteca()
         </field>
     </record>
 

@@ -32,6 +32,7 @@
         'views/producteca.account.views.xml',
         'views/producteca.connections.views.xml',
         'data/ir.cron.xml',
+        'data/ir_actions_server.xml',
         'views/product.template.xml',
         'views/stock.warehouse.xml',
         'wizards/import_producteca_product.xml',
