@@ -28,9 +28,9 @@ class StockQuant(models.Model):
         
         quant_rec = self.env['stock.quant'].browse(quant_id)
         
-        if quant_rec.last_producteca_quantity == self.quantity:
-            _logger.info(f"Stock for product {self.product_id.default_code} unchanged ({self.quantity}), skipping update to all Producteca accounts")
-            return
+        # if quant_rec.last_producteca_quantity == self.quantity:
+        #     _logger.info(f"Stock for product {self.product_id.default_code} unchanged ({self.quantity}), skipping update to all Producteca accounts")
+        #     return
         
         sync_success = False
         
@@ -48,8 +48,12 @@ class StockQuant(models.Model):
             if not warehouse_name:
                 _logger.warning(f"Cannot update stock for product {self.product_id.default_code}: warehouse {self.location_id.warehouse_id.name} has no Producteca warehouse name configured for account {account.account_name}")
                 continue
-            
-            stock_data = {"warehouse": warehouse_name, "quantity": self.quantity}
+            root_location_id = self.location_id.warehouse_id.view_location_id.id
+            if not root_location_id:
+                _logger.warning(f"Cannot update stock for product {self.product_id.default_code}: warehouse {self.location_id.warehouse_id.name} has no view location defined for account {account.account_name}")
+                continue
+            quantity = self.product_id.with_context(location=root_location_id).qty_available
+            stock_data = {"warehouse": warehouse_name, "quantity": quantity}
             
             producteca_body = {
                 "sku": self.product_id.default_code,
@@ -72,7 +76,7 @@ class StockQuant(models.Model):
                 continue
         
         if sync_success:
-            quant_rec.last_producteca_quantity = self.quantity
+            quant_rec.last_producteca_quantity = quantity
 
     def _check_and_sync_parent_kits(self):
         """Check if this product is a component of any kit (BoM phantom) and sync those kits.

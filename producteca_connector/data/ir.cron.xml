@@ -18,15 +18,35 @@
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
             <field name="active" eval="False"/>
-        </record>
-        <record id="ir_cron_create_product_in_producteca_queue" model="ir.cron">
-            <field name="name">Producteca: Crear Productos Pendientes en Producteca</field>
-            <field name="model_id" ref="product.model_product_template"/>
-            <field name="state">code</field>
-            <field name="code">model.create_product_in_producteca_queue()</field>
-            <field name="user_id" ref="base.user_root"/>
-            <field name="interval_number">20</field>
-            <field name="interval_type">minutes</field>
-            <field name="active" eval="False"/>
-        </record>
+    </record>
+    <record id="ir_cron_sync_stock_to_producteca_morning" model="ir.cron">
+        <field name="name">Producteca: Sync Stock Diario (Manana)</field>
+        <field name="model_id" ref="model_producteca_account"/>
+        <field name="state">code</field>
+        <field name="code">model.daily_sync_cron_job()</field>
+        <field name="user_id" ref="base.user_root"/>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="ir_cron_create_product_in_producteca_queue" model="ir.cron">
+        <field name="name">Producteca: Crear Productos Pendientes en Producteca</field>
+        <field name="model_id" ref="product.model_product_template"/>
+        <field name="state">code</field>
+        <field name="code">model.create_product_in_producteca_queue()</field>
+        <field name="user_id" ref="base.user_root"/>
+        <field name="interval_number">20</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="False"/>
+    </record>
+    <record id="ir_cron_delete_orphan_connections_queue" model="ir.cron">
+        <field name="name">Producteca: Eliminar Conexiones Huérfanas</field>
+        <field name="model_id" ref="product.model_product_template"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_delete_orphan_connections_queue()</field>
+        <field name="user_id" ref="base.user_root"/>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active" eval="False"/>
+    </record>
 </odoo>
