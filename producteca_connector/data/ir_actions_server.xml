@@ -14,5 +14,21 @@ for connection in records.producteca_connection_ids:
     stock_quant_obj.with_delay().sync_product_stock_to_producteca(connection.id)
             </field>
         </record>
+
+        <record id="action_cleanup_producteca_connections_not_flagged" model="ir.actions.server">
+            <field name="name">Limpiar conexiones Producteca no tildadas</field>
+            <field name="model_id" ref="product.model_product_template"/>
+            <field name="binding_model_id" ref="product.model_product_template"/>
+            <field name="binding_view_types">list</field>
+            <field name="state">code</field>
+            <field name="code">
+templates_to_clean = records.with_context(active_test=False).filtered(
+    lambda template: not template.is_producteca_product and template.producteca_connection_ids
+)
+connections = templates_to_clean.with_context(active_test=False).mapped('producteca_connection_ids')
+if connections:
+    connections.sudo().unlink()
+            </field>
+        </record>
     </data>
 </odoo>

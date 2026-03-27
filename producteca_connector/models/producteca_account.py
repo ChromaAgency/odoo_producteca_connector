@@ -277,6 +277,11 @@ class ProductecaAccountConfig(models.Model):
         result = super(ProductecaAccountConfig, self).unlink()
         self.env['producteca.account']._toggle_product_creation_cron()
         return result
+    
+    def daily_sync_cron_job(self):
+        accounts_to_sync = self.sudo().search([('active', '=', True), ('is_odoo_able_to_update_producteca_stock', '=', True)])
+        for account in accounts_to_sync:
+            account.sync_all_stock_to_producteca()
 
     def sync_all_stock_to_producteca(self):
         """Synchronize all product stock from Odoo to Producteca marketplace.

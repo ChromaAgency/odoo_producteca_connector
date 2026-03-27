@@ -856,6 +856,8 @@ class ProductTemplate(models.Model):
         if template.producteca_connection_ids.filtered(
             lambda c: c.producteca_account_id.id == account.id):
             return True
+        if not template.is_producteca_product:
+            return True
         product_service.create_if_it_doesnt_exist = account.create_if_dosnt_exist
         if not is_update:
             producteca_body.update({
@@ -1176,22 +1178,30 @@ class ProductTemplate(models.Model):
 
     def write(self, vals):
         list_price_changed = 'list_price' in vals
+        should_disconnect = (
+            ('active' in vals and not vals['active'])
+            or ('is_producteca_product' in vals and not vals['is_producteca_product'])
+        )
         
         templates_to_sync = []
         if list_price_changed:
-            for template in self:
-                if template.producteca_connection_ids:
-                    templates_to_sync.append(template.id)
+            templates_to_sync = self.filtered(
+                lambda template: template.producteca_connection_ids and template.is_producteca_product
+            ).ids
+
+        connections_to_unlink = self.env['producteca.product.connections']
+        if should_disconnect:
+            connections_to_unlink = self.with_context(active_test=False).mapped(
+                'producteca_connection_ids'
+            )
         
         result = super(ProductTemplate, self).write(vals)
         
         if list_price_changed and templates_to_sync:
             self._trigger_list_price_sync(templates_to_sync)
 
-        if 'active' in vals and not vals['active']:
-            for record in self:
-                if record.producteca_connection_ids:
-                    record.producteca_connection_ids.sudo().unlink()
+        if connections_to_unlink:
+            connections_to_unlink.sudo().unlink()
         
         
         return result
@@ -1316,3 +1326,16 @@ class ProductTemplate(models.Model):
             f"Enqueued update for product '{self.name}' (ID: {self.id}) "
             f"in account '{account.account_name}'"
         )
+
+    def cron_delete_orphan_connections_queue(self):
+        products_with_connections_to_kill = self.env['product.template'].sudo().search([
+            ('producteca_connection_ids', '!=', False),
+            ('is_producteca_product', '=', True)
+        ])
+        for product in products_with_connections_to_kill:
+            _logger.info(
+                f"Producto '{product.name}' (ID: {product.id}) tiene conexiones huérfanas. "
+                f"Encolando eliminación de conexiones."
+            )
+            for connection in product.producteca_connection_ids:
+                connection.sudo().unlink()
