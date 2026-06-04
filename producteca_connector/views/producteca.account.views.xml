@@ -25,6 +25,12 @@
                             type="object" 
                             class="btn-primary"
                             confirm="¿Está seguro de que desea sincronizar todos los productos de Producteca? Esta operación puede tomar varios minutos."/>
+                    <button name="sync_all_stock_to_producteca" 
+                            string="Sincronizar Stock a Producteca" 
+                            type="object" 
+                            class="btn-secondary"
+                            invisible="not is_odoo_able_to_update_producteca_stock"
+                            confirm="¿Está seguro de que desea sincronizar el stock de todos los productos a Producteca? Esta operación puede tomar varios minutos."/>
                 </header>
                 <sheet>
                     <group>

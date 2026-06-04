@@ -6,11 +6,14 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
-                <button name="action_close_order" string="Cerrar Orden en Producteca" type="object" class="oe_highlight" groups="producteca_connector.producteca_close_sale_order_group"/>
+                <button name="action_close_order" string="Cerrar Orden en Producteca" type="object" class="oe_highlight" groups="base.group_no_one"/>
             </xpath>
-            <xpath expr="//field[@name='partner_id']" position="before">
-                <field name="cart_id"/>
-                <field name="origin_platform"/>
+            <xpath expr="//page[@name='other_information']" position="after">
+                <page name="producteca_info" string="Información de Producteca">
+                <group>
+                <field name="cart_id" readonly="1"/>
+                <field name="origin_platform" readonly="1"/>
+                </group></page>
             </xpath>
         </field>
     </record>

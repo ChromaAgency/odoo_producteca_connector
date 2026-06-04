@@ -7,3 +7,4 @@ access_producteca_products_wizard,producteca.products.wizard,model_producteca_pr
 access_sale_order_cart_user,sale.order.cart.user,model_sale_order_cart,base.group_user,1,0,0,0
 access_sale_order_cart_manager,sale.order.cart.manager,model_sale_order_cart,base.group_erp_manager,1,1,1,1
 access_producteca_saleorders_wizard,producteca.saleorders.wizard,model_producteca_saleorders_wizard,base.group_user,1,1,1,1
+access_update_producteca_product_wizard,update.producteca.product.wizard,model_update_producteca_product,base.group_user,1,1,1,1

@@ -265,7 +265,9 @@ class SaleOrder(models.Model):
         else:
             warehouse = account.warehouse_ids.filtered(lambda x: x.producteca_warehouse_name == warehouse_name)
         if not warehouse:
-            return False
+            return self.env['stock.warehouse'].search([('producteca_warehouse_name', '=', warehouse_name), ('company_id', '=', account.company_id.id)], limit=1).id
+        if not warehouse:
+            raise UserError(f"Warehouse '{warehouse_name}' not found for account ID {account.id}")
         return warehouse.id
 
 
@@ -308,10 +310,12 @@ class SaleOrder(models.Model):
         return sale_order_lines
 
     def _handle_delivery_line(self, body, order_lines):
-        carrier_product_name = f"Servicio de Entrega: {body.get('shipments')[0].get('method').get('courier')}"
-        delivery_product = self.env['product.product'].sudo().search([('name', '=', carrier_product_name)], limit=1)
-        
-        if not delivery_product:
+        delivery_method_name = body.get('shipments')[0].get('method').get('courier')
+        delivery_method = self.env['delivery.carrier'].search([('name', '=', delivery_method_name)], limit=1)
+        if delivery_method:
+            delivery_product = delivery_method.product_id
+        else:
+            carrier_product_name = f"Servicio de Entrega: {body.get('shipments')[0].get('method').get('courier')}"
             delivery_product = self.env['product.product'].create({
                 'name': carrier_product_name,
                 'type': 'service',
@@ -395,16 +399,44 @@ class SaleOrder(models.Model):
         if self.state not in ['sale', 'done']:
             self.with_context(update_from_confirm=True).action_confirm()
         for order in self:
-            order._create_invoices()
+            if not order.invoice_ids:
+                order._create_invoices()
         return self
 
     def _run_confirm_process(self):
         if self.state not in ['sale', 'done']:
             self.with_context(update_from_confirm=True).action_confirm()
         for order in self:
-            moves = order._create_invoices()
-            for move in moves.filtered(lambda r: r.state != 'post'):
+            if not order.invoice_ids:
+                moves = order._create_invoices()
+            else:
+                moves = order.invoice_ids
+            for move in moves.filtered(lambda r: r.state != 'posted'):
                 move.action_post()
+        return self
+    
+    def _process_pickings_from_order(self, order, max_iterations=3):
+        """Process pickings with a maximum iteration limit.
+        
+        Args:
+            order: Sale order containing pickings to process
+            max_iterations: Maximum number of recursive calls (default 3 for Odoo's 3-step routing)
+        """
+        if max_iterations <= 0:
+            return
+        
+        for picking in order.picking_ids.filtered(lambda p: p.state != 'done'):
+            picking.sudo().with_context(confirm_from_delivery=True).button_validate()
+        if order.picking_ids.filtered(lambda p: p.state != 'done'):
+            self._process_pickings_from_order(order, max_iterations - 1)
+        return
+    
+    def _run_delivery_process(self):
+        for order in self:
+            if order.state not in ['sale', 'done']:
+                order.with_context(update_from_confirm=True).action_confirm()
+            if order.picking_ids and order.picking_ids.filtered(lambda p: p.state != 'done'):
+                self._process_pickings_from_order(order)
         return self
 
     def _run_import_sale_action(self, account):
@@ -414,21 +446,23 @@ class SaleOrder(models.Model):
             return self._run_draft_invoice_process()
         elif account.imported_sale_action == 'confirm':
             return self._run_confirm_process()
-        raise Exception("unsupported action")
+        elif account.imported_sale_action == 'delivery':
+            return self._run_delivery_process()
+        else:
+            raise Exception("unsupported action")
 
     def _upset_saleorder_from_producteca(self, account, body):
+        _logger.info(f"Upserting sale order from Producteca with ID: {body.get('id')}")
         order_id = body.get('id')
-        order = self.env['sale.order'].search([('producteca_id', '=', order_id)])
         if not order_id:
             raise Exception("No se encontro el id de la orden")
+        order = self.env['sale.order'].search([('producteca_id', '=', order_id)])
         if order:
-            order_lines = {line.product_id.id: line.id for line in order.order_line}
-            sale_order_dict = self._prepare_sale_order_dict(body, account, order_lines)
-            order.sudo().write(sale_order_dict)
+            return True
         else:
             sale_order_dict = self._prepare_sale_order_dict(body, account)
             order = self.env['sale.order'].sudo().create(sale_order_dict)
-        return order._run_import_sale_action(account)
+            return order._run_import_sale_action(account)
 
     def enqueue_last_x_days_orders_from_producteca(self):
         producteca_accounts = self.env['producteca.account'].sudo().search([('active', '=', True)])

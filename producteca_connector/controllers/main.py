@@ -78,12 +78,27 @@ class ProductecaImageController(http.Controller):
     @http.route(['/producteca/webhooks'], type='http', auth='none', methods=['POST'], csrf=False)
     def webhooks(self, **post):
         json_body = request.httprequest.data
-        data = json.loads(json_body)
+        if json_body:
+            try:
+                data = json.loads(json_body)
+            except json.JSONDecodeError:
+                _logger.warning("Failed to parse JSON body, using query parameters instead")
+                data = post
+        else:
+            data = post
+        if not data.get('resourceType') or not data.get('resourceId') or not data.get('companyId'):
+            _logger.error(f"Missing required parameters in webhook data: {data}")
+            return request.make_response("Missing required parameters", status=400)
+        
         resource_type = data['resourceType']
         resource_id = data['resourceId']
-        account_id = request.env['producteca.account'].sudo().search([('producteca_company_id', '=', data['companyId'])], limit=1)
+        company_id = data['companyId']        
+        _logger.info(f"Processing webhook for resource type: {resource_type}")        
+        account_id = request.env['producteca.account'].sudo().search([('producteca_company_id', '=', company_id)], limit=1)
         if not account_id:
+            _logger.error(f"companyId not found: {company_id}")
             return request.not_found("companyId not found")
+        
         client = account_id.get_client()
         if resource_type == 'products':
             self._process_product_webhook(account_id, resource_id)

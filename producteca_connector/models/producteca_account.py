@@ -79,6 +79,7 @@ class ProductecaAccountConfig(models.Model):
         ("quotation", "Create the sale order confirmed"),
         ("draft_invoice", "Confirm the sale order and create draft invoice"),
         ("confirm", "Confirm the sale order and create confirmed invoice"),
+        ("delivery", "Confirm the sale order and confirm delivery"),
     ], 
         string="Imported Sale Action", 
         required=True,
@@ -219,6 +220,23 @@ class ProductecaAccountConfig(models.Model):
                 }
             }
 
+    def _toggle_product_creation_cron(self):
+        """Activate or deactivate the product creation cron based on create_if_dosnt_exist.
+        
+        The cron is activated when at least one active account has create_if_dosnt_exist=True.
+        The cron is deactivated when no active accounts have create_if_dosnt_exist=True.
+        """
+        cron = self.env.ref('producteca_connector.ir_cron_create_product_in_producteca_queue', raise_if_not_found=False)
+        if not cron:
+            return
+        
+        has_active_account = self.env['producteca.account'].sudo().search([
+            ('active', '=', True),
+            ('create_if_dosnt_exist', '=', True)
+        ], limit=1)
+        
+        cron.sudo().write({'active': bool(has_active_account)})
+
     def get_client(self):
         """Get authenticated Producteca API client.
         
@@ -247,3 +265,83 @@ class ProductecaAccountConfig(models.Model):
         """
         self.ensure_one()
         return self.env['product.template'].sync_all_products_from_producteca()
+
+
+    def write(self, vals):
+        result = super(ProductecaAccountConfig, self).write(vals)
+        if 'create_if_dosnt_exist' in vals or 'active' in vals:
+            self._toggle_product_creation_cron()
+        return result
+
+    def unlink(self):
+        result = super(ProductecaAccountConfig, self).unlink()
+        self.env['producteca.account']._toggle_product_creation_cron()
+        return result
+    
+    def daily_sync_cron_job(self):
+        accounts_to_sync = self.sudo().search([('active', '=', True), ('is_odoo_able_to_update_producteca_stock', '=', True)])
+        for account in accounts_to_sync:
+            account.sync_all_stock_to_producteca()
+
+    def sync_all_stock_to_producteca(self):
+        """Synchronize all product stock from Odoo to Producteca marketplace.
+        
+        This method synchronizes stock quantities for all active product connections
+        in this Producteca account. It processes each warehouse configured in the account
+        and sends current stock levels to Producteca marketplace.
+        
+        Business Logic:
+        - Only syncs if 'is_odoo_able_to_update_producteca_stock' is enabled
+        - Processes all active connections (producteca.product.connections)
+        - Sends stock for each configured warehouse
+        - Respects 'create_if_dosnt_exist' setting for products
+        - Uses queued jobs for better performance
+        
+        Returns:
+            dict: Action result with success message
+            
+        Raises:
+            ValidationError: If stock sync is not enabled for this account
+        """
+        self.ensure_one()
+        
+        if not self.is_odoo_able_to_update_producteca_stock:
+            raise ValidationError(
+                _("Stock synchronization to Producteca is not enabled for account '%s'. "
+                  "Please enable 'Is Odoo Able to Update Producteca Stock' in the account settings.") 
+                % self.account_name
+            )
+        connections = self.env['producteca.product.connections'].search([
+            ('producteca_account_id', '=', self.id),
+            ('active', '=', True)
+        ])
+        
+        if not connections:
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('No Products Found'),
+                    'message': _('No active product connections found for this Producteca account.'),
+                    'type': 'warning',
+                    'sticky': False,
+                }
+            }
+        
+        synced_count = 0
+        stock_quant_obj = self.env['stock.quant']
+        
+        for connection in connections:
+            stock_quant_obj.with_delay().sync_product_stock_to_producteca(connection.id)
+            synced_count += 1
+        
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Stock Sync Queued'),
+                'message': _('%d products queued for stock synchronization to Producteca.') % synced_count,
+                'type': 'success',
+                'sticky': False,
+            }
+        }
